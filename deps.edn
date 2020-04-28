@@ -1,0 +1,245 @@
+{:paths ["src"]
+ :deps {org.clojure/clojure {:mvn/version "1.10.1"}
+
+        ;; Clojurescript
+        org.clojure/clojurescript {:mvn/version"1.10.520"}
+        ;; https://github.com/bhauman/figwheel-repl/issues/14
+        ;; org.clojure/clojurescript {:mvn/version"1.10.741"} ;;not supported by Figwheel yet as of 28/4/20
+        com.bhauman/figwheel-main {:mvn/version "0.2.4-SNAPSHOT"}
+
+        ;; Database migration
+        joplin.core {:mvn/version "0.3.11"}
+        joplin.jdbc {:mvn/version "0.3.11"}
+        stch-library/sql {:mvn/version "0.1.2"}
+
+        ;; Html clojure style
+        sablono {:mvn/version "0.8.4"}  ; Optional, just for HTML
+
+        ;; Environment variables
+        environ {:mvn/version "1.1.0"}
+
+        ;; Util libs
+        funcool/cuerdas {:mvn/version "2.0.5"}
+
+        ;; Logging ==========================
+        com.taoensso/timbre      {:mvn/version "4.10.0"}
+        com.taoensso/encore      {:mvn/version "2.106.0"}
+        ring-logger-timbre {:mvn/version "0.7.6"}
+        ;; http://ioavisopretty.readthedocs.io/en/0.1.21/
+        io.aviso/pretty {:mvn/version "0.1.37"  }
+        jansi-clj {:mvn/version "0.1.1"}
+
+        ;; System components
+        integrant {:mvn/version "0.8.0"}
+        integrant/repl {:mvn/version "0.3.1"}
+
+        ;;Networking
+        http-kit {:mvn/version "2.3.0"}
+        com.taoensso/sente {:mvn/version "1.13.1"}
+
+        ;; Ring
+        ;;Updating this to 1.7.1 crashes figwheel server
+        ring                      {:mvn/version "1.6.3"}
+        bidi {:mvn/version "2.1.5"}
+        ring/ring-defaults        {:mvn/version "0.3.2"} ; Includes `ring-anti-forgery`, etc.
+        ring-cors {:mvn/version "0.1.13"}
+        ring/ring-json {:mvn/version "0.4.0"}
+
+        ;; Bcrypt for use with passwords
+        crypto-password {:mvn/version "0.2.0"}
+
+        ;;Database
+        com.layerware/hugsql {:mvn/version "0.4.9"}
+        clojure.jdbc/clojure.jdbc-c3p0 {:mvn/version "0.3.3"}
+        org.clojure/java.jdbc {:mvn/version "0.7.11"}
+        mysql/mysql-connector-java {:mvn/version
+                                    "5.1.47"
+                                    ;; "8.0.19"
+                                    }
+
+        ;; Dev
+        fipp {:mvn/version "0.6.17"}
+        weasel {:mvn/version "0.7.0"}
+        com.taoensso/tufte {:mvn/version "2.1.0"}
+        expound {:mvn/version "0.8.4"}
+        }
+
+ }
+
+
+
+
+
+
+        ;; pandect {:mvn/version "0.6.1"}
+
+        ;; ring/ring-mock {:mvn/version "0.3.2"}
+        ;; ring.middleware.conditional {:mvn/version "0.2.0"}
+        ;;AUM deps
+
+
+
+
+        ;; org.clojure/core.async {:mvn/version "0.4.490"
+        ;;                         :exclusions [org.clojure/tools.reader]}
+        ;; org.clojure/tools.deps.alpha {:mvn/version "0.8.677"
+        ;;                               ;;tools.deps includes this nop, which
+        ;;                               ;;creates multiple bindings for slf4j if
+        ;;                               ;;you include another binding like logback-classic
+        ;;                               :exclusions [org.slf4j/slf4j-nop]}
+
+        ;; org.omcljs/om {:mvn/version "1.0.0-beta4" :exclusions [cljsjs/react
+        ;;                                                        cljsjs/react-dom]}
+
+
+        ;; com.cognitect/transit-clj  {:mvn/version "0.8.313"}
+
+        ;; HTML as data
+        ;; hickory {:mvn/version "0.7.1"}
+
+        ;; cljsjs/react {:mvn/version "16.0.0-0"}
+        ;; cljsjs/react-dom {:mvn/version "16.0.0-0"}
+
+        ;; org.clojure/data.json  {:mvn/version "0.2.6"}
+
+        ;; Testing -----------------------
+        ;; https://github.com/juxt/iota
+        ;; juxt/iota {:mvn/version "0.2.3"  } ;Infix Operators for Test Assertions, copied to aum.test.iota
+        ;; org.clojure/test.check {:mvn/version "0.9.0"} ;; only if you need generators
+        ;; eftest {:mvn/version "0.5.4"  }
+        ;; https://github.com/nubank/matcher-combinators
+        ;; nubank/matcher-combinators {:mvn/version "0.6.1"  }
+        ;;https://clojure-expectations.github.io/
+        ;; expectations {:mvn/version "2.2.0-rc3"  }
+        ;; pjstadig/humane-test-output {:mvn/version "0.9.0"  }
+        ;; https://github.com/GreenPowerMonitor/test-doubles
+        ;; greenpowermonitor/test-doubles {:mvn/version "0.1.2"  }
+        ;; https://github.com/walmartlabs/test-reporting
+        ;; com.walmartlabs/test-reporting {:mvn/version "0.1.0"  }
+
+        ;; Dev ---------------------------
+        ;; https://github.com/vvvvalvalval/scope-capture
+        ;; vvvvalvalval/scope-capture {:mvn/version "0.3.2" }
+        ;; devcards-om-next {:mvn/version "0.3.0" :exclusions [cljsjs/react
+        ;;                                                     cljsjs/react-dom]}
+        ;;Visual repl and testing
+        ;; devcards {:mvn/version "0.2.6" :exclusions [cljsjs/react cljsjs/react-dom
+        ;;                                             org.clojure/clojurescript]}
+
+        ;;Slamhound rips your namespace form apart and reconstructs it.
+        ;; slamhound {:mvn/version "1.5.5"}
+        ;; nightlight {:mvn/version "2.3.2"  }
+
+        ;; Util -----------------------------
+        ;; camel-snake-kebab {:mvn/version "0.4.0"}
+        ;; cheshire {:mvn/version "5.8.1"}
+        ;; Json but better
+        ;; prismatic/schema {:mvn/version "1.1.10"}
+        ;; org.clojure/data.csv {:mvn/version "0.1.4"}
+        ;; clj-time {:mvn/version "0.15.1"}
+
+
+        ;; Network -----------------------
+        ;; clj-http {:mvn/version "3.9.1"} ;;Sees to be needed for bugsnag-clj.
+        ;;Otherwise clj-http.headers ns can't be
+        ;;found?!?!
+        ;; ;; Websockets
+        ;; com.taoensso/sente {:mvn/version "1.13.1"}
+        ;; Webserver routing
+        ;; bidi {:mvn/version "2.1.5"}
+        ;; Request and response handling
+        ;;Updating this to 1.7.1 crashes figwheel server
+        ;; ring                      {:mvn/version "1.6.3"}
+        ;; ring/ring-defaults        {:mvn/version "0.3.2"} ; Includes `ring-anti-forgery`, etc.
+        ;; ring-cors {:mvn/version "0.1.13"}
+        ;; ring/ring-json {:mvn/version "0.4.0"}
+
+        ;; ring/ring-mock {:mvn/version "0.3.2"}
+        ;; ring.middleware.conditional {:mvn/version "0.2.0"}
+
+        ;; SQL ==============================
+        ;; Sql queries
+        ;; mysql/mysql-connector-java {:mvn/version "5.1.47"
+        ;;                             ;; "8.0.15"
+        ;;                             }
+
+        ;; mysql/mysql-connector-java {:mvn/version "5.1.43"}
+        ;; mysql/mysql-connector-java {:mvn/version "6.0.5"} ;breaks code
+        ;; TODO: maybe use https://funcool.github.io/clojure.jdbc/latest/ ?
+        ;; org.clojure/java.jdbc {:mvn/version "0.7.8"}
+        ;; https://search.maven.org/#search%7Cgav%7C1%7Cg%3A%22org.clojure%22%20AND%20a%3A%22java.jdbc%22
+        ;; org.clojure/java.jdbc {:mvn/version "0.3.7"}
+        ;; org.clojure/java.jdbc {:mvn/version "0.5.8"}
+        ;; For db connection pooling
+        ;; TODO: maybe use https://funcool.github.io/clojure.jdbc/latest/#c3p0 ?
+        ;; clojure.jdbc/clojure.jdbc-c3p0 {:mvn/version "0.3.3"}
+        ;; org.postgresql/postgresql {:mvn/version "9.4-1212-jdbc41"}
+        ;; postgresql {:mvn/version "9.3-1102.jdbc41"}
+        ;; com.layerware/hugsql {:mvn/version "0.4.9"}
+        ;; yesql {:mvn/version "0.5.3"}
+
+
+
+        ;; Manage lifecycle of services ===========================
+        ;; mount {:mvn/version "0.1.16"}
+        ;; tolitius/mount-up {:mvn/version "0.1.2"}
+        ;; Alternative to hooke I think. Up and down events useable to print info
+        ;; https://github.com/tolitius/mount-up/blob/master/src/mount_up/core.clj
+        ;; robert/hooke {:mvn/version "1.3.0"} ; logging for mount
+
+        ;; Bcrypt for use with passwords
+        ;; crypto-password {:mvn/version "0.2.0"}
+        ;; pandect {:mvn/version "0.6.1"}
+
+        ;;Web app
+        ;; Ajax
+        ;; cljs-http {:mvn/version "0.1.46"}
+        ;; cljs-ajax {:mvn/version "0.8.0"}
+
+        ;; CSS
+        ;; https://github.com/sass/sassc
+        ;; https://github.com/Deraen/sass4clj
+        ;; garden {:mvn/version "1.3.6"}
+
+        ;; markdown-clj {:mvn/version "1.0.7"}
+
+        ;; Memory database a la datomic
+        ;; datascript {:mvn/version "0.17.1"}
+
+
+        ;;MISC ===============================
+        ;; differ {:mvn/version "0.3.2"}
+
+        ;; yleisradio/new-reliquary {:mvn/version "1.1.0"} ;or: ??
+        ;; com.climate/clj-newrelic {:mvn/version "0.2.1"}
+        ;; com.newrelic.agent.java/newrelic-api {:mvn/version "4.2.0"}
+
+        ;; me.raynes/conch {:mvn/version "0.8.0"}
+
+        ;; dev dependencies
+        ;; net.cgrand/unrepl {:MVN/VERSION "0.1.0-SNAPSHOT"}
+
+        ;;repl interactive data structure inspector
+        ;; datawalk {:mvn/version "0.1.12"}
+
+        ;; Event-store streaming library (rx streams)
+        ;; funcool/beicon {:mvn/version "4.1.0"}
+
+        ;;Like clojure.inspector:
+        ;; inspector-jay {:mvn/version "0.3"}
+        ;; proto-repl {:mvn/version "0.3.1"}
+        ;; orchestra {:mvn/version "2019.02.06-1"}
+        ;; com.taoensso/carmine {:mvn/version "2.19.1"}
+
+        ;; gnl/ghostwheel {:mvn/version "0.2.3"}
+        ;;TODO: Following two are handy, but muck up prod build. Move to profile.boot as a first step
+        ;;Need to find way to only require and use dep in dev build
+        ;; https://github.com/binaryage/cljs-devtools/blob/master/docs/installation.md#advanced-builds
+        ;; https://github.com/philoskim/debux/issues/1
+        ;; https://github.com/philoskim/debux
+        ;; philoskim/debux {:mvn/version "0.4.2"}
+        ;; https://github.com/anmonteiro/plomber
+        ;; plomber {:mvn/version "0.1.0"}
+        ;; data-to-html {:mvn/version "0.1.2"}
+
+        ;; com.taoensso/tufte {:mvn/version "2.1.0"}
