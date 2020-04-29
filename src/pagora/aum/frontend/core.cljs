@@ -56,7 +56,7 @@
   (let  [app-config (make-app-config)]
     (set! *warn-on-infer* true)
     (enable-console-print!)
-    (timbre/merge-config! {:level (get-in app-config [:debug :timbre-level])
+    (timbre/merge-config! {:level (:timbre-log-level app-config :info)
                            :appenders {:console (console-appender)}})
     (assoc aum-config :app-config app-config)))
 

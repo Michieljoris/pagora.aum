@@ -203,7 +203,7 @@
      (let [mods-to-restore (dirty-record-mods @state calc-mods)]
 
        (timbre/info "Merging value:")
-       (timbre/info :#cp value)
+       (timbre/info :#pp value)
 
        ;;This also calls my om-deep-merge and migrate, it will
        ;;reset the meta of any records that are

@@ -71,9 +71,8 @@
         app-config (merge {:db-config db-config
                            :frontend-config (select-keys app-config frontend-config-keys)}
                           app-config)
-        _ (when-let [timbre-log-level (:timbre-log-level app-config)]
-            (timbre/merge-config! {:level timbre-log-level
-                                   :middleware [middleware]}))
+        _ (timbre/merge-config! {:level (:timbre-log-level app-config :info)
+                                 :middleware [middleware]})
         ig-system-config (make-ig-system-config app-config)
         aum-config {:app-config app-config
                     :ig-system-config ig-system-config}]

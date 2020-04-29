@@ -7,7 +7,7 @@
    [integrant.core :as ig]
    [bidi.ring :as bidi]
    [cheshire.core :as json]
-   [clj-bugsnag.ring :as bugsnag.ring]
+   ;; [clj-bugsnag.ring :as bugsnag.ring]
    [cuerdas.core :as str]
    [ring.logger :refer [wrap-with-logger]]
    [ring.logger.protocols :refer [Logger]]
