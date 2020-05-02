@@ -6,9 +6,9 @@
 (defn exec [db sql]
   (let [uri (str/strip (:connection-uri db) "jdbc:")]
     (with-open [conn (jdbc/connection uri)]
-      (jdbc/execute uri [sql]))))
+      (jdbc/execute conn [sql]))))
 
 (defn fetch [db sql]
   (let [uri (str/strip (:connection-uri db) "jdbc:")]
     (with-open [conn (jdbc/connection uri)]
-      (jdbc/execute uri [sql]))))
+      (jdbc/execute conn [sql]))))
