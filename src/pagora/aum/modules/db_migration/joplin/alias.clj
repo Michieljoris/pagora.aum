@@ -2,6 +2,8 @@
   (:require [clojure.java.io :as io]
             [clojure.tools.cli :as cli]
             [clojure.pprint :refer [pprint]]
+            [clojure.string :as string]
+            [joplin.core :as joplin]
             [joplin.repl :as repl]))
 
 ;; https://github.com/juxt/joplin
@@ -17,10 +19,38 @@
 ;; config file is the filename of a joplin configuration which has to recide
 ;; somewhere in the resources.
 
+(defn do-create-migration
+  "Create a scaffold migrator file"
+  [prefix target id ns]
+  (when (:migrator target)
+    (let [migration-id (joplin/get-full-migrator-id id)
+          ns-name (string/replace migration-id "_" "-")
+          target-parts (-> (:migrator target) (string/split #"/") rest)
+          path (str prefix "/" (string/join "/" target-parts) "/"
+                    (string/replace migration-id "-" "_")
+                    ".clj")]
+      (println "creating" path)
+      (try
+        (spit path (format "(ns %s
+(:require
+   [pagora.aum.modules.db-migration.joplin.core :refer [exec fetch]]
+   [stch.sql.ddl :refer :all]))
+
+;; https://stch-library.github.io/sql/
+
+(defn up [db]
+  (exec db :todo-sql-here))
+
+(defn down [db]
+  (exec db :tod-sql-here))
+
+" (apply str (interpose "." (concat target-parts [ns-name])))))
+        (catch Exception e
+          (println "Error creating file" path))))))
+
 (defn joplin-do
   ([action options] (joplin-do action options nil))
   ([action {:keys [config env db id num] :as options} args]
-   (pprint {:action action :options options :args args})
    (let [action (keyword action)
          env (keyword env)
          db (keyword db)
@@ -40,9 +70,9 @@
                          :pending #(when db
                                      (repl/pending conf env db))
                          :create (fn create []
-                                   (pprint {:creating id :in db})
                                    (when (and db id)
-                                     (repl/create conf env db id)))}
+                                     (with-redefs [joplin/do-create-migration (partial do-create-migration (:path conf))]
+                                       (repl/create conf env db id))))}
                         action)]
      (action-fn))))
 
@@ -60,7 +90,7 @@
   (System/exit status))
 
 (defn -main [& args]
-  (let [{:keys [options arguments summary errors]}(cli/parse-opts args cli-options)
+  (let [{:keys [options arguments summary errors]} (cli/parse-opts args cli-options)
         action (first arguments)
         args (rest arguments)]
     (cond
@@ -68,11 +98,12 @@
       :else (do (joplin-do action options args)
                 (System/exit 0)))))
 (comment
-  (joplin-do :migrate {:config "joplin.edn" :env :dev} "foo")
+  (joplin-do :migrate {:config "joplin.edn" :env :dev :db :aum-minimal})
   (joplin-do :pending {:config "joplin.edn" :env :dev :db :aum-minimal})
-  (joplin-do :rollback-n {:config "joplin.edn" :env :dev :db :aum-dev :num "1"})
+  (joplin-do :rollback-n {:config "joplin.edn" :env :dev :db :aum-minimal :num "1"})
   ;; (joplin-do :rollback-id {:config "joplin.edn" :env :dev :db :sql-minimal :id "20200330150018-create-accounts"})
 
   (joplin-do :seed {:config "joplin.edn" :env :dev :db :aum-dev} ["seed1"])
   (joplin-do :reset {:config "joplin.edn" :env :dev :db :aum-minimal})
+  (joplin-do :create {:config "joplin.edn" :env :dev :db :aum-minimal :id "my-new-migration"})
   )
