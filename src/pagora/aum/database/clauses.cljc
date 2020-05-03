@@ -176,4 +176,5 @@
     (build-sql/limit-snip {:count count :offset offset})))
 
 ;; (make-limit-clause {:count 1} 10)
-;; (make-order-by-clause {:order-by [[:id :desc] ["bla" :desc]]})
+;; (make-order-by-clause {:table-name "foo"
+;;                        :order-by [[:id :desc] ["bla" :desc]]})

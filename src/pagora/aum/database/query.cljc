@@ -1,10 +1,12 @@
 (ns pagora.aum.database.query
   (:require
    #?@(:clj
-       [[clojure.java.jdbc :as jdbc]])
+       [[clojure.java.jdbc :as jdbc]
+        [pagora.aum.database.jdbc-joda-time :as jdbc-joda-time]])
    [pagora.aum.database.build-sql :as build-sql]
    [pagora.clj-utils.core :as cu]
    [cuerdas.core :as str]
+   [clojure.pprint :refer [pprint]]
    [taoensso.timbre :as timbre :refer [info]]))
 
 (defn cols->cols-hyphened [cols]
@@ -74,6 +76,7 @@
              sql-str (str/replace sql-str "  " " ")
              sql-seq (conj (rest sqlvec) sql-str)]
          (info :#g (str/join " " sql-seq))
+         sqlvec
          )))
    :cljs
    (defn log-sql [{:keys [fun params aum-hugsql-ns hugsql-ns print-only parser-config] :as args}]
@@ -124,6 +127,27 @@
 ;;                                                                    :cols nil
 ;;                                                                    :order-by order-by}))}))
 
+(defn adjust-for-tz
+  "When db server is not set to utc we correct for the timezone"
+  [v]
+  (- (.getTime v)
+     (* 60000 (.getTimezoneOffset v))))
+
+(defn wrap-with-bindings [datetime-return-type f]
+  (case datetime-return-type
+    :joda (f)
+    (with-bindings
+      {#'jdbc-joda-time/result-set-read-column-timestamp
+       ;;mysql types: TimeStamp and DateTime
+       #(new java.sql.Timestamp (adjust-for-tz %))
+       #'jdbc-joda-time/result-set-read-column-date
+       ;;mysql type: Date
+       #(new java.sql.Date (adjust-for-tz %))
+       #'jdbc-joda-time/result-set-read-column-time
+       ;;mysql type: Time
+       #(new java.sql.Time(adjust-for-tz %))}
+      (f))))
+
 (defn sql
   "Executes fun with db connection from env as second argument Add a
   map under the sql key in env to replace aum processing of params,
@@ -164,45 +188,201 @@
 "
   ([env fun] (sql env fun {} false))
   ([env fun params] (sql env fun params false))
-  ([{:keys [parser-config db-conn]
+  ([{:keys [parser-config]
      {:keys [aum-process-params
              aum-process-result
              aum-validate-sql-fun
              aum-hugsql-ns hugsql-ns
-             jdbc-result-set-read-column jdbc-sql-value]
+             datetime-return-type]
       :or {aum-process-params aum-process-params
            aum-process-result aum-process-result
            aum-validate-sql-fun validate-sql-fun
            aum-hugsql-ns "pagora.aum.database.queries"
-           #?@(:clj
-              [jdbc-result-set-read-column jdbc/result-set-read-column
-               jdbc-sql-value jdbc/sql-value])}
+           dateitme-return-type :joda}
       } :sql
      :as env} fun params print-only]
    (let [fun (or (:fun params) fun) ;if we decided to use a alternative fun, use that
-         params (->> params
-                     (aum-process-params env fun)
-                     (process-params env fun))
-         fun-ref (build-sql/resolve-sql-fun fun hugsql-ns aum-hugsql-ns)]
-     ;; (timbre/info fun params)
-     (aum-validate-sql-fun env fun params)
-     (log-sql {:fun fun :params params :aum-hugsql-ns aum-hugsql-ns :hugsql-ns hugsql-ns
-               :print-only print-only :parser-config parser-config})
-     (if-not print-only
-       (let [result
-             #?(:clj (with-redefs [jdbc/result-set-read-column jdbc-result-set-read-column
-                                   jdbc/sql-value jdbc-sql-value]
-                       ;; Actual call to sql fn.
-                       (fun-ref db-conn params)))
-             #?(:cljs
-                (do
-                  ;; (timbre/info :#pp params)
-                  (fun-ref db-conn params)
-                  )
-                )]
-         ;; (timbre/info :#pp result)
-         (let [result (->> result
-                           (aum-process-result env fun params)
-                           (process-result env fun params))]
-           (table-hook env fun params result)
-           result))))))
+         {:keys [noop] :as params} (->> params
+                                        (aum-process-params env fun)
+                                        (process-params env fun))]
+
+     (if noop
+       noop
+       (let [_ (aum-validate-sql-fun env fun params)
+             sql-vec (log-sql {:fun fun :params params :aum-hugsql-ns aum-hugsql-ns :hugsql-ns hugsql-ns
+                               :print-only print-only :parser-config parser-config})
+             process-result-fn #(->> %2
+                                     (aum-process-result %1 fun params)
+                                     (process-result %1 fun params))]
+         (if print-only
+           sql-vec
+           (let [fun-ref (build-sql/resolve-sql-fun fun hugsql-ns aum-hugsql-ns)
+                 result
+                 #?(:clj (jdbc/with-db-transaction [tx (:db-conn env)]
+                           (when (:simulate? params)
+                             (timbre/info :#b "Simulating..")
+                             (jdbc/db-set-rollback-only! tx))
+                           (try
+                             (let [{:keys [db-conn] :as env} (assoc env :db-conn tx)
+                                   result (process-result-fn env
+                                                             (wrap-with-bindings datetime-return-type
+                                                                                 #(fun-ref db-conn params)))]
+                               (table-hook env fun params result)
+                               result)
+                             (catch Exception e
+                               (timbre/info :#r "An exception was thrown while trying to execute an sql query (either by query itself or any hooks)."
+                                            "No change has been made to the database.")
+                               (throw e)))))
+                 #?(:cljs
+                    (do
+                      (let [result (process-result-fn env (fun-ref db-conn params))]
+                        (table-hook env fun params result)
+                        result)))]
+             result)))))))
+
+
+;; Debug/test:
+;; (comment
+;;   (require '[pagora.clj-utils.database.connection :as db-connection])
+;;   (require '[pagora.aum.database.schema :as schema])
+;;   (def db-conn (db-connection/make-db-connection {:url "//localhost:3306/"
+;;                                                   :db-name "aum_minimal"
+;;                                                   ;; :db-name "aum_development"
+;;                                                   :print-spec true
+;;                                                   :use-ssl false
+;;                                                   :user "root"
+;;                                                   :password ""}))
+;;   (def env {:db-conn db-conn
+;;             :schema (schema/get-schema db-conn)
+;;             :user {:id 1 :group-id 10 :subgroup-ids [2 3] :role "master-admin"}
+;;             :db-config {:event-store {:table-name :event-store
+;;                                       :delete {:scope [:name := 100]}
+;;                                       :update {:scope [:or [[:group-id := :u/group-id]
+;;                                                             [:group-id :in :u/subgroup-ids]]]
+;;                                                :whitelist [:id :name]}
+;;                                       }}
+;;             :sql {:hugsql-ns "database.queries"}
+;;             :parser-config {:sql-log true
+;;                             :event-store-disabled true}})
+;;   ;; (sql env :insert-record  {:table :group
+;;   ;;                           :skip-validate? true
+;;   ;;                           :mods {:name "bar"}
+;;   ;;                           })
+;;   ;; (sql env :delete-record  {:table :event-store
+;;   ;;                           :skip-validate? true
+;;   ;;                           :id 3
+;;   ;;                           :scope "foo"
+;;   ;;                           })
+;;   (pprint (sql env :search-translations {:group-id -1
+;;                                          ;; :order-by-clause (db-clauses/make-order-by-clause {:order-by [[:t1.id :asc]]})
+;;                                          :where-clause (let [clause
+;;                                                              (db-clauses/make-where-clause {:table-name "t1" :cols [:t1.id :t1.key] :where [:t1.key := "a1"]})]
+;;                                                          (into [(subs (first clause) 6)] (rest clause))
+;;                                                          )
+
+;;                                          :limit 5})))
+
+;; (let [clause
+;;       (db-clauses/make-where-clause {:table-name "t1" :cols [:t1.group_id :t2.translation_id:a.b] :where [:and  [[:t1.group_id := 2][:t1.group_id := 1]]]})]
+;;   (into [(subs (first clause) 6)] (rest clause))
+;;   )
+;; (db-clauses/make-where-clause {:table-name "t1a" :cols [:t1.group_id :t2.translation_id:a.b] :where [:and  [[:t1.group_id := 2][:a.b := 1]]]})
+;; ;; => ["where (`t1a`.`a` = ? AND `t1a`.`a` = ?)" 2 1]
+
+;;  where t1.group_id is null and ((t2.translation_id = t1.id and t2.group_id = :group-id) or (t2.translation_id is null and t2.id = t1.id))
+
+
+
+;; Obsolete
+
+;; (defn _process-params
+;;   "Basically lets you use keywords for tables and cols. Table keywords
+;;   are expected to be singular and hyphenated. Also makes sure only the
+;;   specified sql fns can be executed"
+;;   [env fun {:keys [table mods cols] :as params}]
+;;   (let [cols (cols->cols-hyphened cols)]
+;;     (condp = fun
+;;       :get-cols-from-table
+;;       (assoc params
+;;              :table (db-inspect/table-name env (:table params))
+;;              :cols cols)
+;;       :get-joined-rows
+;;       ;; When t1==t2 aliases kick in, see hug.sql
+;;       (let [t1 (:t1 params)
+;;             t2 (:t2 params)
+;;             t1-name (db-inspect/table-name env t1)
+;;             t2-name (db-inspect/table-name env t2)
+;;             t1=t2? (= t1 t2)
+;;             [t1-alias t2-alias] (if t1=t2?
+;;                                   [(str "t1_" t1-name) (str "t2_" t2-name)]
+;;                                   [t1-name t2-name])
+;;             t1-foreign-key (du/keyword->underscored-string (:t1-foreign-key params))
+;;             t2-foreign-key (du/keyword->underscored-string (:t2-foreign-key params))
+;;             cols (map #(str (if t1=t2? t2-alias t2-name) "." %) cols)
+;;             cols (conj cols (str (:join-table params) "." t1-foreign-key))]
+;;         (assoc params
+;;                :t1-name t1-name :t1-alias t1-alias
+;;                :t2-name t2-name :t2-alias t2-alias
+;;                :t1=t2? t1=t2?
+;;                :cols cols
+;;                :t1-foreign-key t1-foreign-key
+;;                :t2-foreign-key t2-foreign-key))
+;;       :count-belongs-to {:table (db-inspect/table-name env (:table params))
+;;                          :belongs-to-column (du/keyword->underscored-string (:belongs-to-column params))
+;;                          :id (:id params)
+;;                          :cond (:cond params)}
+;;       :get-now params
+
+;;       ;;Mutations
+;;       :insert-record (let [{:keys [cols vals]} (du/map->keys-and-vals mods)
+;;                            cols (cols->cols-hyphened cols)]
+;;                        {:table (db-inspect/table-name env table) :cols cols :vals vals
+;;                         :no-timestamp? (db-inspect/no-timestamp? env table)})
+;;       :update-record {:table (db-inspect/table-name env (:table params)) :id (:id params)
+;;                       :cols cols :vals (:vals params) :no-timestamp? (db-inspect/no-timestamp? env (:table params))}
+;;       :delete-record {:table (db-inspect/table-name env (:table params)) :id (:id params)}
+;;       :bulk-update (let [{:keys [table where where-cols updates no-timestamp?]} params
+;;                          table-name (db-inspect/table-name env table)]
+;;                      {:table table-name
+;;                       :no-timestamp? (boolean no-timestamp?)
+;;                       :cols (-> updates keys cols->cols-hyphened)
+;;                       :vals (-> updates vals vec)
+;;                       :where-clause (clauses/make-where-clause {:table-name table-name
+;;                                                                 :cols where-cols
+;;                                                                 :where where})})
+;;       :insert-event {:table (db-inspect/table-name env (:table params)) :cols cols :vals (:vals params)}
+;;       (throw (ex-info"Unknown sql function" {:fun fun})))))
+
+
+;; (defn aum-process-result
+;;   "Transforms cols of rows back to hyphenated keywords. Also for some
+;;   other queries that return something other than rows, make sure the
+;;   result is meaningful "
+;;   [env fun params result]
+;;   (condp = fun
+;;     ;; http://www.hugsql.org/#using-insert
+;;     :get-now (:now result)
+;;     :update-record result
+;;     :insert-record (:generated_key result) ;NOTE: generated_key  only works for mysql
+;;     :insert-event (:generated_key result) ;NOTE: generated_key  only works for mysql
+;;     :delete-record (when (= 1 result) result) ;;return nil if nothing is deleted
+;;     :bulk-update (first result)
+;;     (du/transform-keys (comp keyword du/underscore->hyphen name) result)))
+
+;; (defn process-params [{{:keys [process-params-plus]
+;;                         :or {process-params-plus (constantly nil)}
+;;                         } :sql
+;;                        :as env} fun params]
+;;   (or (process-params-plus env fun params)
+;;       (_process-params env fun params)))
+
+
+;; (defn process-result [{{:keys [process-result-plus]
+;;                         :or {process-result-plus (constantly nil)}
+;;                         } :sql
+;;                        :as env} fun params result]
+;;   (or (process-result-plus env fun params result)
+;;       (_process-result env fun params result)))
+
+
+

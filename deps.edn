@@ -39,7 +39,7 @@
 
 
         ;;Database
-        com.layerware/hugsql {:mvn/version "0.4.9"}
+        com.layerware/hugsql {:mvn/version "0.5.1"}
         org.clojure/java.jdbc {:mvn/version "0.7.11"}
         funcool/clojure.jdbc {:mvn/version "0.9.0"}
         mysql/mysql-connector-java {:mvn/version "8.0.20"}

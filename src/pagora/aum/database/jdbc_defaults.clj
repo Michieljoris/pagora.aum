@@ -1,4 +1,9 @@
-(ns pagora.aum.database.jdbc-defaults)
+(ns pagora.aum.database.jdbc-defaults
+  (:require [clj-time.coerce :as tc]
+            [clj-time.coerce :as c]
+            [clj-time.core :as t]
+            [taoensso.timbre :as timbre :refer [error info warn]]
+            [clojure.java.jdbc :as jdbc]))
 
 
 ;;We want to make sure we're using the default implementation for this.
@@ -20,18 +25,33 @@
   Boolean
   (result-set-read-column [x _2 _3] (if (= true x) true false))
 
+  java.sql.Date
+  (result-set-read-column [val _ _]
+    (.toLocalDate val))
+
+  ;; java.sql.Timestamp
+  ;; (result-set-read-column [val _ _]
+  ;;   (timbre/info val)
+
+  ;;   (System/setProperty "user.timezone" "Australia/Tasmania")
+  ;;   (timbre/info (.getTimezoneOffset val))
+  ;;   (timbre/info (c/from-sql-time val))
+  ;;   (timbre/info (type val))
+  ;;   (let [t (c/from-sql-time val)
+  ;;         t (t/to-time-zone t (t/default-time-zone))
+  ;;         ]
+  ;;     (timbre/info {:t t
+  ;;                   :to-sql-time (c/to-sql-time t)})
+
+  ;;     )
+
+  ;;   ;; (.toInstant val)
+  ;;   (.toString val)
+  ;;   )
+
   nil
   (result-set-read-column [_1 _2 _3] nil))
 
-;; (extend-protocol IResultSetReadColumnDefault
-;;   Object
-;;   (result-set-read-column [x _2 _3] x)
-
-;;   Boolean
-;;   (result-set-read-column [x _2 _3] (if (= true x) true false))
-
-;;   nil
-;; (result-set-read-column [_1 _2 _3] nil))
 
 ;;https://github.com/clojure/java.jdbc/blob/0ea6110529b04337dc4bc8e6c23bc9f566027e45/src/main/clojure/clojure/java/jdbc.clj#L336
 (defprotocol ISQLValue
@@ -46,4 +66,4 @@
   (sql-value [v] v)
 
   nil
-(sql-value [_] nil))
+  (sql-value [_] nil))

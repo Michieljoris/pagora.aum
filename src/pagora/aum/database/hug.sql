@@ -22,7 +22,10 @@ UPDATE users SET remember_token=:remember_token WHERE users.id=:id
 
 --- *************** Interpretation of om/next queries
 -- :name get-cols-from-table :? :*
-select
+
+--- NOTE: current version of hugsql (0.4.9) doesn't pick up this hint.
+--- https://github.com/layerware/hugsql/issues/71
+select  /*+ MAX_EXECUTION_TIME(1000) */
 --~ (if (seq (:cols params)) ":i*:cols" "*")
 from :i:table
 --~ (when (:where-clause params) ":snip:where-clause")
@@ -39,8 +42,8 @@ SET GLOBAL sql_mode=(SELECT REPLACE(@@sql_mode, "ONLY_FULL_GROUP_BY", ""));
 SELECT @@sql_mode
 
 -- :name get-joined-rows :? :*
-select DISTINCT
---~ (if (:count? params) "count(*)" ":i*:cols")
+select /*+ MAX_EXECUTION_TIME(1) */
+--~ (if (:count? params) (str "count(DISTINCT " (:t2-name params) ".id) as count" ) "DISTINCT :i*:cols")
 from :i:t1-name
 --~ (when (:t1=t2? params) ":i:t1-alias")
 inner join :i:join-table
@@ -62,21 +65,26 @@ on
 /*~
 (if (:no-timestamp? params)
 "insert into :i:table (:i*:cols) VALUES (:v*:vals)"
-"insert into :i:table (:i*:cols, updated_at, created_at) VALUES (:v*:vals, NOW(), NOW())")
+"insert into :i:table (:i*:cols, updated_at, created_at) VALUES (:v*:vals, :v:created-at, :v:updated-at)")
 ~*/
+
+
+-- :name insert-records :! :n
+insert into :i:table (:i*:cols) values :tuple*:vals
+
 
 -- :name update-record :! :n
 update :i:table
 set
 --~  (clojure.string/join "," (map #(str ":i:cols." % " = :v:vals." %) (range (count (:cols params)))))
---~  (when (not (:no-timestamp? params)) ", updated_at = NOW()")
+--~  (when (not (:no-timestamp? params)) ", updated_at = :v:updated-at")
 --~ ":snip:where-clause"
 
 -- :name bulk-update :!
 update :i:table
 set
 --~  (clojure.string/join "," (map #(str ":i:cols." % " = :v:vals." %) (range (count (:cols params)))))
---~  (when (not (:no-timestamp? params)) ", updated_at = NOW()")
+--~  (when (not (:no-timestamp? params)) ", updated_at = :v:updated-at")
 --~ ":snip:where-clause"
 
 -- :name delete-record :! :n
@@ -84,7 +92,7 @@ delete from :i:table
 --~ ":snip:where-clause"
 
 -- :name insert-event :i!
-insert into :i:table (:i*:cols, created_at) VALUES (:v*:vals, NOW());
+insert into :i:table (:i*:cols, created_at) VALUES (:v*:vals, :v:created-at);
 
 -- *************** misc queries
 -- :name count-belongs-to :? :1
@@ -113,6 +121,18 @@ show tables;
 -- :name describe-table :? :*
 -- :doc Regular describe for a table
 describe :i:table;
+
+-- :name global-time-zone :? :1
+SELECT @@global.time_zone;
+
+-- :name session-time-zone :? :1
+SELECT @@session.time_zone;
+
+-- :name set-global-time-zone :!
+SET @@global.time_zone = '+00:00';
+
+-- :name set-session-time-zone :!
+SET @@session.time_zone = '+00:00';
 
 --- *************** Test db
 -- :name drop-db :!

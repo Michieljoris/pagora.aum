@@ -35,6 +35,8 @@
                         (assoc :where-clause (make-cond-scope-clause)))]
       (case sql-fn
         :get-cols-from-table (sql env :count sql-fn-args)
+        ;;TODO-aum: make this thing extendable. user+subscription doesn't belong here. Eg. have user pass in functions
+        :user+subscription (sql env sql-fn (assoc sql-fn-args :count? true))
         :get-joined-rows (sql env sql-fn (assoc sql-fn-args :count? true))
         :not-implemented))))
 

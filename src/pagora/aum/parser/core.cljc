@@ -6,6 +6,7 @@
        [[pagora.aum.om.next.server :as om]]
        :cljs
        [[pagora.aum.om.next :as om]])
+   [pagora.clj-utils.core :as cu]
    [pagora.clj-utils.database.connection :refer [make-db-connection]]
    [pagora.aum.om.util :as om-util]
    [pagora.aum.database.schema :as schema]
@@ -13,8 +14,7 @@
    [pagora.aum.parser.read :as read]
    [pagora.aum.security :as security]
    [clojure.pprint :refer [pprint]]
-   [taoensso.timbre :as timbre]
-   ))
+   [taoensso.timbre :as timbre]))
 
 (def parser-config-defaults
   {;;Log queries received, and returned edn map
@@ -45,26 +45,24 @@
 
        (pprint db-conn))))
 
-
-(defn parser-env [{:keys [db-conn db-conn-params db-config] :as parser-env}]
+(defn parser-env [{:keys [db-conn db-conn-params parser-config db-config
+                          ] :as env}]
   (let [db-conn (if (nil? db-conn)
                   (make-db-connection db-conn-params)
                   db-conn)
-        parser-env (update parser-env :parser-config #(merge parser-config-defaults %))
+        env (update env :parser-config #(merge parser-config-defaults %))
         {:keys [schema raw-schema]} (get-schema db-conn)
-        schema (security/secure-schema schema db-config)
-        aum-keys [:db-config :parser-config :sql :db-conn :schema :cb :subquery-path :aum-keys]
-        _ (security/validate-db-config db-config schema)
-        parser-env (assoc parser-env
-                          :db-conn db-conn :state (atom nil)
-                          :schema schema :raw-schema raw-schema
-                          ;;TODO: Really should put all aum info under a aum key,
-                          ;;but this would mean refactoring all the fns where env gets
-                          ;;destructured into the aum info keys. This aum-keys key
-                          ;;allows me to pass on this info into parsers without knowing
-                          ;;what keys are exactly aum keys
-                          :aum-keys aum-keys)]
-    (assoc parser-env :aum (select-keys parser-env aum-keys))))
+        schema (security/secure-schema env schema db-config)]
+    (security/validate-db-config env db-config schema)
+    (assoc env
+           :db-conn db-conn :state (atom nil)
+           :schema schema :raw-schema raw-schema
+           ;;TODO: Really should put all aum info under a aum key,
+           ;;but this would mean refactoring all the fns where env gets
+           ;;destructured into the aum info keys. This aum-keys key
+           ;;allows me to pass on this info into parsers without knowing
+           ;;what keys are exactly aum keys
+           :aum-keys [:db-config :parser-config :sql :db-conn :schema :cb :subquery-path :aum-keys])))
 
 
 (defn make-parser-env [{:keys [parser-config db-config db-conn sql]}]
@@ -88,10 +86,11 @@
     {:value :not-authorized }))
 
 (defn secured-mutate [{:keys [state user] :as env} key params]
-  (timbre/info :#r "secured-mutate")
   (if user
     (mutate/mutate-handle-errors env key params)
     {:value :not-authorized }))
+
+
 
  (defn take-nth-mutations [mutation-map n]
    (->> mutation-map
@@ -137,7 +136,7 @@
                                  :mutate mutate})]
     (fn [env q]
       (reset! (:state parser-env) {:status :ok})
-      (group-mutation-results aum-parser (merge parser-env env) q))))
+      (group-mutation-results aum-parser (cu/deep-merge-maps parser-env env) q))))
 
 (defn make-parser [parser-env]
   (parser parser-env))
@@ -145,3 +144,5 @@
 (defmethod ig/init-key ::parser [k {:keys [config parser-env]}]
   (when (:integrant-log config) (timbre/info :#g "[INTEGRANT] creating" (name k)))
   (make-parser {:parser-env #?(:clj parser-env :cljs @parser-env)}))
+
+

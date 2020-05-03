@@ -7,13 +7,9 @@
    [pagora.aum.database.query :refer [sql]]
    [pagora.aum.security :as security]
    [pagora.clj-utils.core :as cu]
-
    [pagora.aum.om.util :as om-util]
-
    [clojure.set :refer [difference]]
-   [cuerdas.core :as str]
-   [taoensso.timbre :as timbre :refer [spy error info warn]]
-))
+   [taoensso.timbre :as timbre]))
 
 ;;TODO:
 ;;- get-scope isn't used
@@ -32,6 +28,8 @@
 
 (defmulti read (fn [_ k _] k))
 
+;; (ns-unalias *ns* 'read)
+
 (declare get-join)
 (declare row->ident)
 
@@ -42,6 +40,7 @@
        :meta (dissoc meta :query-cols)}
       rows)))
 
+
 (defn process-ast [{ :keys [parser-config ast state user] :as env} key params]
   (if-not (sequential? (:query ast))
     (throw (ex-info "Query is not sequential" {:query (:query ast)})))
@@ -49,7 +48,6 @@
                                                    {:join-ast ast :table-data {}
                                                     :user user})
         rows-meta-data (meta t2-rows)
-        ;; _ (timbre/info key (into [] t2-rows) ast)
         value (if (om-util/ident? (:key ast))
                 nil ;; (first t2-rows)
                 (mapv (partial row->ident env key) t2-rows))
@@ -92,7 +90,7 @@
         #?@(:clj [Exception e])
         #?@(:cljs [:default e])
         (let [{:keys [msg context stacktrace] :as error} (cu/parse-ex-info e)]
-          (when (:print-exceptions parser-config) (info e))
+          (when (:print-exceptions parser-config) (timbre/info e))
           (swap! state update :status (constantly :error))
           {:value {:message msg :context context :stacktrace [:not-returned]}}))))
 
@@ -141,31 +139,51 @@
                           nil calculations)]
     (with-meta (into [] rows) (assoc meta-data :query-cols query-cols))))
 
-(defmethod get-rows nil
-  [_
-   {:keys [db-config parser-config] :as env}
-   {:keys [t2 where-clause cols limit-clause] :as args}]
-  ;; select columns from table
-  ;; (get-rows-nil args)
-  (let [table-config (get db-config t2)
+(defn calc-limit-clause [{:keys [db-config parser-config] :as env} t limit-clause]
+  (let [table-config (get db-config t)
         {:keys [count offset]} limit-clause
         limit-max (:limit-max (if (contains? table-config :limit-max)
                                 table-config parser-config))]
-    (if (and (number? count) (number? limit-max)
-             (> count limit-max))
-      (throw (ex-info (str "Count of limit (" count ") clause is larger than max for root query of " limit-max)
-                      {:table t2})))
-    (if-not (or (:root table-config)
-                (:allow-root parser-config))
-      (throw (ex-info (str t2 " can not be used for root query") {:table t2})))
+    (when (and (number? count) (number? limit-max)
+               (> count limit-max))
+      (throw (ex-info (str "Count of limit (" count ") clause is larger than max of " limit-max " for table " t)
+                      {:table t})))
+    (clauses/make-limit-clause limit-clause limit-max)))
 
-    (exec-sql-query env {:sql-fn :get-cols-from-table
+(defmethod get-rows nil
+  [_
+   {:keys [db-config parser-config user] :as env}
+   {:keys [t2 where-clause cols limit-clause] :as args}]
+
+  ;; select columns from table
+  ;; (get-rows-nil args)
+  (let [table-config (get db-config t2)
+        ;; {:keys [count offset]} limit-clause
+        ;; limit-max (:limit-max (if (contains? table-config :limit-max)
+        ;;                         table-config parser-config))
+        sql-fun (if (= (:backend table-config) :virtual)
+                  (or (:sql-fun table-config) t2)
+                  :get-cols-from-table)
+        limit-clause (calc-limit-clause env t2 limit-clause)]
+    ;; (if (and (number? count) (number? limit-max)
+    ;;          (> count limit-max))
+    ;;   (throw (ex-info (str "Count of limit (" count ") clause is larger than max for root query of " limit-max)
+    ;;                   {:table t2})))
+    (let [{:keys [root]} table-config]
+      (if-not (or (if (map? root)
+                    (get root (:role user))
+                    root)
+                  (:allow-root parser-config))
+        (throw (ex-info (str t2 " can not be used for root query") {:table t2}))))
+
+    (exec-sql-query env {:sql-fn sql-fun
                          :join-type nil
                          :sql-fn-args (assoc args
                                       :table t2
                                       :cond nil
-                                      :limit-clause (clauses/make-limit-clause limit-clause limit-max)
-                                      :where-clause (where-clause nil))})))
+                                      :limit-clause limit-clause
+                                      :where-clause (where-clause nil))})
+    ))
 
 (defmethod get-rows :belongs-to
   [_ env
@@ -187,55 +205,62 @@
     (if count (take count rows) rows)))
 
 (defmethod get-rows :has-many
-  [_ env
-   {:keys [t1-rows t2 where-clause cols t1-foreign-key limit-clause]:as args}]
+  [_ env {:keys [t1-rows t2 where-clause cols t1-foreign-key limit-clause] :as args}]
   ;; select columns from t2 where t1_id in t1-ids
   ;; (get-rows-has-many args)
   (let [cols (if (cu/includes? cols t1-foreign-key) cols (conj cols t1-foreign-key))
         t1-ids (mapv :id t1-rows)
-        cond [t1-foreign-key :in t1-ids]]
+        cond [t1-foreign-key :in t1-ids]
+        limit-clause (when (:from-single-entity? limit-clause)
+                       (calc-limit-clause env t2 limit-clause))]
     (exec-sql-query env {:sql-fn :get-cols-from-table
                          :return-empty-vector? (zero? (count t1-ids))
                          :join-type :has-many
                          :sql-fn-args (assoc args
                                              :table t2
                                              :cols cols
-                                             :limit-clause nil
                                              :cond cond
                                              :t1-ids t1-ids
+                                             :limit-clause limit-clause
                                              :where-clause (where-clause cond))})))
 
 (defmethod get-rows :many-to-many
-  [_ env
+  [_ {:keys [db-config parser-config] :as env}
    {:keys [t1 t1-rows t2 cols join-table t1-foreign-key t2-foreign-key
            where-clause cols order-by-clause limit-clause join-table-cols] :as args}]
-  ;; (pprint  args)
 
   ;; [_ t1 t1-rows t2 cols join-table]
   ;; select columns from t1
   ;; join t1_t2 on t1.id=t1_t2.t1_id
   ;; join t2 on t2.id=t1_t2.t2_id
   ;; where t1_id in t1-ids
-  (let [t1-table-id (keyword (str (db-inspect/table-name env t1) ".id"))
+  (let [{:keys [backend tables]} (get db-config t1)
+        t1 (if (= backend :virtual) (first tables)
+               t1)
+        t1-table-id (keyword (str (db-inspect/table-name env t1) ".id"))
         t1-ids (mapv :id t1-rows)
         t1=t2? (= t1 t2)
         alias-prefix (when t1=t2? "t1_")
         t1-table-id (if t1=t2?
                       (keyword (str alias-prefix (name t1-table-id)))
                       t1-table-id)
-        cond [t1-table-id :in t1-ids]]
+        cond [t1-table-id :in t1-ids]
+        limit-clause (when (:from-single-entity? limit-clause)
+                       (calc-limit-clause env t2 limit-clause))]
     (exec-sql-query env {:sql-fn :get-joined-rows
                          :join-type :many-to-many
                          :return-empty-vector? (zero? (count t1-ids))
                          :sql-fn-args (assoc args
+                                             :t1 t1
                                              :cols cols
                                              :join-table-cols join-table-cols
-                                             :limit-clause nil
+                                             :limit-clause limit-clause
                                              :cond (with-meta cond
                                                      {:alias-prefix alias-prefix})
                                              :where-clause (where-clause (with-meta cond
                                                                            {:alias-prefix alias-prefix})
                                                                          t1-table-id))})))
+
 (defn get-single-row
   "Using an ident, eg [[dossier/by-id 1]]"
   [{:keys [env table id cols scope params props whitelist]}]

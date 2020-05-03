@@ -11,6 +11,7 @@
   #?(:clj
      (:refer-clojure :exclude [count]))
   #?(:clj (:require [hugsql.core :as hugsql]
+                    [aum.database.adapter.clojure-java-jdbc :as clojure-java-jdbc]
                     [hugsql.parameters :as hugsql-parameters]
                     [clojure.string :as string])
      :cljs (:require [pagora.aum.database.build-sql :as build-sql])))
@@ -35,7 +36,17 @@
 
 ;; Load all sql fns into this namespace
 #?(:clj
-   (hugsql/def-db-fns "pagora/aum/database/hug.sql" {:quoting :mysql}))
+   (hugsql/def-db-fns "pagora/aum/database/hug.sql" {:quoting :mysql
+                                                     ;;NOTE: we're using our own slightly adapted adapter because of this issue:
+                                                     ;;https://github.com/layerware/hugsql/issues/71
+                                                     ;;As of 26-8-19 this has not been released. Current version is 0.4.9
+                                                     ;;In this adapter we add a hint to max exec time since we're querying events now as well
+                                                     ;;and there are a lot of them.
+                                                     ;;TODO-aum: fixed in hugsql cersion 0.5.1
+                                                     :adapter (clojure-java-jdbc/bilby-hugsql-adapter-clojure-java-jdbc)
+                                                     :max-execution-time 10000
+
+                                                     }))
 
 #?(:clj
    (hugsql/def-sqlvec-fns "pagora/aum/database/hug.sql" {:quoting :mysql}
