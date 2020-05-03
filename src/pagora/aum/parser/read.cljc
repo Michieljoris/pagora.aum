@@ -314,17 +314,29 @@
   for."
   [{:keys [parser-config] :as env}
    {:keys [join-type join-table join-table-kw t1 t1-rows t2 t2-from-ident
-           id cols user params t1-foreign-key t2-foreign-key]}]
-  (let [ ;; [t2-from-ident id] (maybe-ident->table t2)
+           id cols user params t1-foreign-key t2-foreign-key]
+    :as join-info}]
+  (let [;; [t2-from-ident id] (maybe-ident->table t2)
         [cols join-table-cols] (extract-join-table-cols cols join-table-kw)
         [_ join-table-cols _] (calc-permissions env join-table-kw join-table-cols user)
         [whitelist whitelisted-cols scope] (calc-permissions env (or t2-from-ident t2) cols user)
         join-table-cols (remove #(or (= % :id) (cu/includes? whitelisted-cols %)) join-table-cols)
+        scope (cond-> scope
+                (fn? scope) (apply [env join-info]))
         t2-alias-prefix (if (and (= t1 t2) (= join-type :many-to-many))
-                          "t2_" "")     ;aliasing for many-to-many to itself
-        whitelisted-cols (with-meta whitelisted-cols {:cols cols})
-        ]
-    (do
+                           "t2_" "") ;aliasing for many-to-many to itself
+        whitelisted-cols (with-meta whitelisted-cols {:cols cols})]
+
+    (when (and (seq removed-cols) (:query-log parser-config))
+      (warn :#r "Removed blacklisted or non existing columns from query:" removed-cols))
+    (if (zero? (count whitelisted-cols))
+      (do
+        (when (:query-log parser-config)
+          (warn :#r "No columns requested for " t2
+                ", so no rows fetched.\nPerhaps no blacklist or whitelist is configured for this table?.")
+          )
+        []) ;if all cols are blacklisted, which is the default with nothing set in db-config, then return no rows
+
       (if (and (nil? join-type) t2-from-ident)
         (get-single-row {:env env
                          :table t2-from-ident
@@ -387,7 +399,7 @@
         join-info  (fn [join]
                      ;; {:post [(cu/includes? [:belongs-to :has-many :many-to-many] (:type %))]}
                      (let [[table-from-ident _] (maybe-ident->table (:key ast))
-                           table (or table-from-ident (:key ast))
+                           table (or table-from-ident (:table ast) (:key ast))
                            ;; table (spy :info (:key ast))
                            join-info (db-inspect/_get-join-info env table (:key join))]
                        (when (nil? join-info)
@@ -434,7 +446,6 @@
 
 (defmethod insert-join :belongs-to
   [_ {:keys [env t1-rows t2-key t2 t2-rows t2-foreign-key t1-cols t1-props]}]
-  ;; (timbre/info "inserting belongs-to join")
   (let [foreign-key t2-foreign-key
         t2-rows-meta (meta t2-rows)
         t2-rows-by-foreign-key-value
@@ -446,7 +457,7 @@
                         (and (not= t1-cols :all-keys)
                              (not (cu/includes? t1-props foreign-key))) (dissoc foreign-key))]
               (assoc row t2-key (add-meta (get t2-rows-by-foreign-key-value foreign-key-value)
-                                  t2-rows-meta))))
+                                          t2-rows-meta))))
           t1-rows)))
 
 ;;TODO: bit cheeky putting this here, coupling it with a calc-meta method, and should be a multimethod as well.
@@ -456,8 +467,7 @@
     (-> meta-data (dissoc :count-by-join) (assoc :count (or (get count-by-join id) 0)))
     meta-data))
 
-(defn insert-many-join [{:keys [env t1 t1-rows t2-key t2 t2-rows foreign-key ;; limit-params
-                                t2-cols t2-props]}]
+(defn insert-many-join [{:keys [env t1 t1-rows t2-key t2 t2-rows foreign-key limit-params t2-cols t2-props]}]
   (let [t2-rows-meta (meta t2-rows)
         t2-rows-by-foreign-key-value (group-by foreign-key t2-rows)]
     (mapv (fn [row]
@@ -465,15 +475,20 @@
                   ;;If actual foreign key is queried, remove it, leave inserted one
                   ;;However this has only effect when result is returned denormalized
                   ;;For normalized results this has to happen to the table-data. See get-join
-
                   rows (mapv (fn [row]
                                (cond-> row
                                  (and (not= t2-cols :all-keys)
                                       (not (cu/includes? t2-props foreign-key))) (dissoc foreign-key)))
                              rows)
-                  ;; rows (limit limit-params rows)
-                  ;; row (with-meta row {:join-ids (map :id rows)})
-                  ;;TODO decouple from calc-method!!
+                  ;;When join is from a single entity we can apply the
+                  ;;limit-params at sql level. Otherwise we just have to load
+                  ;;all joined entities in memory and apply limit-params
+                  ;;ourselves. NOTE: this will also have to apply to the
+                  ;;table-data. In templates-editor branch I think this is
+                  ;;actually fixed already so that no superfluous table data
+                  ;;gets sent to the frontend
+                  rows (cond->> rows
+                         (not (:from-single-entity? limit-params)) (limit limit-params))
                   t2-rows-meta (process-many-meta row t2-rows-meta)]
               (assoc row t2-key (add-meta (mapv (partial row->ident env t2) rows) t2-rows-meta))))
          t1-rows)))
@@ -490,9 +505,8 @@
   "Take a seq of rows and returns a lookup by id table"
   [{:keys [parser-config]} table-name rows]
   (when (:normalize parser-config)
-    (let [ident-name (table->ident-name table-name)
-          result (reduce (fn [m row] (assoc m (:id row) row)) {} rows)]
-      {ident-name result})))
+    (let [ident-name (table->ident-name table-name)]
+      {ident-name (reduce (fn [m row] (assoc m (:id row) row)) {} rows)})))
 
 (defn merge-table-data [{:keys [parser-config] :as env} td1 td2]
   ;; (info "Merging td1: " td1)
@@ -522,7 +536,6 @@
         ;; _ (info "end join-ast--------------")
         [t2-from-ident id] (maybe-ident->table t2)
         {:keys [join-type join-table join-table-kw t1-foreign-key t2-foreign-key params]} join-ast
-        ;; _ (timbre/info "Getting unjoined-rows" t1 t2 join-type params)
         t2-rows (get-unjoined-rows env {:join-type join-type
                                         :join-table join-table
                                         :join-table-kw join-table-kw
@@ -536,9 +549,8 @@
         t2-rows (if (and (= join-type :has-many)
                          limit-params)
                   (into [] (mapcat #(limit limit-params %) (vals (group-by t1-foreign-key t2-rows))))
-                  t2-rows)
+                  t2-rows)]
 
-        ]
     ;;Let's go look for joins from t2, so let's call it t1 from now, before we
     ;;return it as t2 again.
     (let [t1 (or t2-from-ident t2)
@@ -551,7 +563,6 @@
              table-data table-data]
         (if (seq joins-to-process)
           (let [join (first joins-to-process)
-                ;; _ (timbre/info "get-join" (:key join) )
                 {:keys [new-table-data t2-rows t2-cols t2-props]} (get-join env {:t1 t1
                                                                                  :t1-rows t1-rows
                                                                                  :join-ast join
@@ -563,13 +574,13 @@
                                                         :t1-cols t1-cols
                                                         :t1-props t1-props
                                                         :t2-key (:key join)
-                                                        :t2 t2
-                                                        :t2-rows t2-rows
+                                                        :t2 t2 :t2-rows t2-rows
                                                         :t2-cols t2-cols :t2-props t2-props
                                                         :t1-foreign-key (:t1-foreign-key join)
                                                         :t2-foreign-key (:t2-foreign-key join)
                                                         ;; :limit-params (get-in join [:params :limit])
                                                         })
+
 
                 ;; _ (timbre/info "t1, t2" t1 t2)
                 ;; _  (timbre/info "t1-rows")
@@ -591,11 +602,8 @@
                 ;;                                         [] t1-rows)]
                 ;;                    (update new-table-data t2-by-id #(select-keys % join-ids)))
                 ;;                  new-table-data)
+
                 ]
-
-            ;; (timbre/info "purged new-table data for " (:key join))
-            ;; _ (timbre/info :#pp new-table-data)
-
             (recur (rest joins-to-process) t1-rows (merge-table-data env table-data new-table-data)))
 
           (let [keys-to-dissoc  (cond-> []
@@ -611,3 +619,7 @@
              :t2-rows (with-meta t1-rows t1-rows-meta)
              :t2-cols t1-cols
              :t2-props t1-props}))))))
+
+
+
+

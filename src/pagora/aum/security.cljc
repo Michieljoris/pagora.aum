@@ -7,8 +7,12 @@
    [pagora.clj-utils.core :as cu]
 
    [clojure.pprint :refer [pprint]]
+
+   [pagora.aum.util :as au]
    #?@(:clj
-       [[crypto.password.bcrypt :as bcrypt]])
+       [[subscriptions.core :as subs]
+        [subscriptions.time :as time]
+        [crypto.password.bcrypt :as bcrypt]])
    [clojure.set :as set]
    [taoensso.timbre :as timbre :refer [info]]))
 
@@ -96,7 +100,7 @@
    :group-id (:group-id user)
    :role (:role user)})
 
-(defn get-permissions
+(defn get-permissions-for-table
   "Gets whitelist, blacklist and scope as set in db-config in env.
   Derives blacklist from whitelist if schema is defined. Throws
   exception if schema is nil and neither whitelist or blacklist is
@@ -110,6 +114,37 @@
                  whitelist (override-whitelist all-columns override)]
              {:whitelist whitelist
               :blacklist (vec (set/difference (set all-columns) (set whitelist)))}))))
+
+(defn get-permissions-for-tables
+  [{:keys [db-config schema] :as env} type table user]
+  (let [{:keys [tables]} (get db-config table)
+        {:keys [scope]} (get-override (get-in db-config [table type])
+                                      (get-relevant-props-from-user user))]
+    (timbre/info )
+    (loop [tables tables
+           result {:whitelist [] :blacklist []
+                   :scope scope}]
+      (if-let [table (first tables)]
+        (recur (rest tables)
+               (let [{:keys [whitelist blacklist scope]} (get-permissions-for-table env type table user)
+                     whitelist (au/prefix-keywords (str (name table) ".") whitelist)
+                     blacklist (au/prefix-keywords (str (name table) ".") blacklist)]
+                 (-> result
+                     (update :whitelist #(into % whitelist))
+                     (update :blacklist #(into % blacklist)))))
+        result))))
+
+(defn get-permissions
+  "Gets whitelist, blacklist and scope as set in db-config in env.
+  Derives blacklist from whitelist if schema is defined. Throws
+  exception if schema is nil and neither whitelist or blacklist is
+  nil for the table and type (type should be :read, :update
+  or :create)"
+  [{:keys [db-config] :as env} type table user]
+  (if (= (get-in db-config [table :backend]) :virtual)
+    (get-permissions-for-tables env type table user)
+    (get-permissions-for-table env type table user))
+  )
 
 (defn get-whitelist
   ([env type table] (get-whitelist env type table nil))
@@ -125,7 +160,7 @@
   ;;  '[parser.core :refer [parser-env]])
 
 
-  (defn secure-schema [schema db-config]
+  (defn secure-schema [{:keys [schema-validating] :as env} schema db-config]
     (let [get-table-name (partial db-inspect/table-name {:db-config db-config})
           table-name->columns (reduce (fn [m [table {:keys [table-name columns schema] :as config}]]
                                         (assoc m (get-table-name table) (or columns (keys schema)) ))
@@ -136,18 +171,20 @@
                              columns (into [] (set/intersection defined-columns derived-columns))
                              non-existing-defined-columns (set/difference defined-columns derived-columns)
                              non-defined-colums (set/difference derived-columns defined-columns)]
-                         (when (and (seq non-existing-defined-columns) *schema-warnings*)
-                           (timbre/warn :#cyan "[db-config] There are columns defined for " table-name " that don't exist in the database: "
-                                        (vec non-existing-defined-columns) ".")
-
-
-                           )
+                         (when (seq non-existing-defined-columns)
+                           (case schema-validating
+                                 :strict (throw (ex-info
+                                                 (str "[db-config] There are columns defined for " table-name " that don't exist in the database")
+                                                 {:non-existing-defined-columns non-existing-defined-columns}))
+                                 (timbre/warn :#cyan "[db-config] There are columns defined for " table-name " that don't exist in the database: "
+                                              (vec non-existing-defined-columns) ".")))
                          (when (and (contains? table-name->columns table-name)
                                     (seq non-defined-colums)
-                                    (seq columns)
-                                    *schema-warnings*)
-                           (timbre/warn :#magenta "[db-config] Not all columns for table" table-name "are defined. Missing are:" (vec non-defined-colums))
-                           )
+                                    (seq columns))
+                           (case schema-validating
+                                 :strict (throw (ex-info (str "[db-config] Not all columns for table " table-name " are defined.")
+                                                         {:non-defined-columns non-defined-colums}))
+                                 (timbre/warn :#magenta "[db-config] Not all columns for table " table-name " are defined. Missing are:" (vec non-defined-colums))))
                          [table-name (assoc config :columns columns)]))
                      schema))))
 
@@ -156,11 +193,15 @@
 
 (do
   ;;TODO: validate cols used in scope against whitelists??
-  (defn validate-db-config [db-config schema]
+  (defn validate-db-config [{:keys [schema-validating] :as env} db-config schema]
     (doseq [[table {:keys [columns]}] db-config]
       (when (empty? columns)
-        (timbre/warn :#r (str "There is config for table " (db-inspect/table-name {:db-config db-config} table)
-                              ", however no columns are defined. Om queries for records in this table will not return any results.") ))))
+        (case schema-validating
+          :strict (throw (ex-info (str "There is config for table " (db-inspect/table-name {:db-config db-config} table)
+                                       ", however no columns are defined. Om queries for records in this table will not return any results.")
+                                  {}))
+          (timbre/warn :#r (str "There is config for table " (db-inspect/table-name {:db-config db-config} table)
+                                ", however no columns are defined. Om queries for records in this table will not return any results.") )))))
   ;; (validate-db-config database.config/db-config nil)
   )
 
@@ -234,4 +275,34 @@
     (if (= 1 (first (q/set-user-remember_token! db-conn {:id id :remember_token (make-uuid)})))
       :success
       :fail)))
+
+(defn print-permissions [env method table user]
+  (print "Permissions to" method table "for user" user "are:\n")
+  (pprint (get-permissions env method table user)))
+
+(defn print-validation-fn
+  ([env method table user] (print-validation-fn env method table user nil))
+  ([env method table user some-validation-fn]
+   (let [validation-fn (get-validation-fun (assoc env :user user) table method)]
+     (print "Validation fn for" method table "for user" user "is:\n")
+     (pprint validation-fn)
+     (when some-validation-fn
+       (if (= some-validation-fn validation-fn)
+         (print "The same as passed in validation-fn!!!")
+         (print "OH NO!!!!! Not the same validation fn"))))))
+
+#?(:clj
+   (defn validate-user-subscription
+     "Fetches relevant subscription for user and returns true iff subscription exists
+  and subscription is current in time-zone and not invalidated. Time zone id can
+  be an offset, a time zone id such as \"Europe/Amsterdam\" or a clj-time time
+  zone."
+     [env {{:keys [id time-zone-id]} :user}]
+     (let [today-in-tz (time/today-in-tz time-zone-id)
+           subscription (subs/get-valid-subscription env {:user-idi id
+                                                          :date today-in-tz})]
+       (not (:invalidated subscription)))))
+
+;; (pprint (t/available-ids))
+;; (time/to-local-date-in-tz nil (t/default-time-zone))
 

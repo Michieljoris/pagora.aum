@@ -6,7 +6,7 @@
 
             [pagora.clj-utils.core :as cu]
 
-            [pagora.aum.util :as bu]
+            [pagora.aum.util :as au]
             #?(:clj
                [pagora.clj-utils.macros :refer [assert-x]])
 
@@ -112,19 +112,19 @@
 
           ;;For validating purposes we fetch any existing record for this mod first:
           {current-record :record} (when (= method :update)
-                                     (bu/read-record (assoc-in env [:parser-config :allow-root] true)
+                                     (au/read-record (assoc-in env [:parser-config :allow-root] true)
                                                      {:table table :id id :query ['*]}))
           ;;And save the mod itself:
           record-id (commit-mod env (assoc mod :current-record current-record))
           modded-tables (cond-> modded-tables
                           record-id ((fnil conj #{}) table))
-          {query-table-data :table-data} (try (bu/read-record env {:table table :id record-id :query query})
+          {query-table-data :table-data} (try (au/read-record env {:table table :id record-id :query query})
                                               (catch #?(:clj Exception
                                                         :cljs :default) e
                                                 (timbre/info e)))]
       (swap! state update :table-data #(cu/deep-merge-concat-vectors
                                         % query-table-data
-                                        ;; {(bu/table->table-by-id table)
+                                        ;; {(au/table->table-by-id table)
                                         ;;    {record-id queried-updated-record}}
                                         ))
       {:modded-tables modded-tables
@@ -224,7 +224,7 @@
                  tempids (->> mods-processed
                               (filter #(= (:method %) :create))
                               (reduce (fn [acc {:keys [id db-id db-id table]}]
-                                        (let [table-by-id (bu/table->table-by-id table)]
+                                        (let [table-by-id (au/table->table-by-id table)]
                                           (assoc acc [table-by-id id] [table-by-id db-id])))
                                       {}))]
              (when simulate? (timbre/info :#r "Rolling back any mods to db since simulate? is true"))
