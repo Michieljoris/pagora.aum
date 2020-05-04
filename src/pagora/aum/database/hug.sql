@@ -182,3 +182,13 @@ SELECT * from fields
 :in ":i:cond.0 :sql:cond.1 NULL"
 ""))
 ~*/
+
+
+-- :name user+subscription :? :*
+select
+--~ (if (:count? params) "count(distinct a.id) as count" (if (seq (:cols params)) ":i*:cols" "a.*"))
+from users as a inner join subscriptions as b on a.id=b.user_id
+--~ (when (:where-clause params) ":snip:where-clause")
+--~ (when (not (:count? params)) "GROUP BY a.id")
+--~ (when (:order-by-clause params) ":snip:order-by-clause")
+--~ (when (:limit-clause params) ":snip:limit-clause")

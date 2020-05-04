@@ -56,7 +56,7 @@
   [{:keys [?data ?reply-fn uid] :as ev-msg }
    {:keys [parser parser-env config websocket]}]
   (try
-    (let [query      ?data
+    (let [{:keys [query options]} ?data
           query-type (if (mutation? query) "Mutation" "Read")]
       (when (:query-log config)
         (if (au/is-development? config)
@@ -68,12 +68,19 @@
       ;; Parser might set status to something other than :ok
       (reset! (:state parser-env) {:status :ok})
       (let [user   {:id 1 :name "admin"}  ;; (get-user-by-ev-msg parser-env ev-msg)
+            ;;NOTE: always vet carefully what gets used in options!!!
+            ;;This is a security leak otherwise!!!!!
+            options (select-keys options [:normalize?])
+            {:keys [normalize?]} options
+            parser-config (cond-> {}
+                            (boolean? normalize?) (assoc :normalize normalize?))
             response {:value (if user
                                (let [user (security/process-user parser-env user)
                                      user (select-keys user
-                                                            (security/get-whitelist parser-env :read :user user))
+                                                       (security/get-whitelist parser-env :read :user user))
                                      {:keys [chsk-send!]} websocket]
                                  (parser {:user user
+                                          :parser-config parser-config
                                           :push (fn [response]
                                                   ;; (timbre/info (str "Pushing response to " uid ":"))
                                                   (pprint response)

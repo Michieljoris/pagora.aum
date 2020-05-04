@@ -1,6 +1,5 @@
 (ns pagora.aum.parser.core
   (:require
-   #?(:clj [pagora.aum.database.jdbc-defaults :as jdbc-defaults])
    [integrant.core :as ig]
    #?@(:clj
        [[pagora.aum.om.next.server :as om]]
@@ -77,8 +76,7 @@
                     :db-config (:db-config config) ;;description of tables, their names, joins, crud permissions and validations
                     :db-conn #?(:clj db-conn :cljs @db-conn)
                     :sql {:hugsql-ns "database.queries"
-                          #?@(:clj [:jdbc-result-set-read-column jdbc-defaults/result-set-read-column])
-                          #?@(:clj [:jdbc-sql-value jdbc-defaults/sql-value])}}))
+                          :datetime-return-type :sql}}))
 
 (defn secured-read [{:keys [user] :as env} key params]
   (if user

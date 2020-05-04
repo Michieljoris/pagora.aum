@@ -72,6 +72,11 @@
   {:action (fn [] (timbre/info :#r (str "Unknown mutation:" key))
              {:unknown-mutation key})})
 
+(defmethod mutate 'admin/update-state
+  [{:keys [state] :as env} _ {:keys [path update-fn]}]
+  {:action (fn []
+             (swap! state update-in path update-fn))})
+
 (defmethod mutate 'admin/clear-key
   [{:keys [state]} _ {:keys [key]}]
   {:action (fn []
@@ -82,6 +87,15 @@
   {:action (fn []
              (swap! state assoc key value))})
 
+(defmethod mutate 'admin/update-page-state
+  [{:keys [state]} _ {:keys [table update-fn]}]
+  {:action (fn []
+             (au/update-page-state state table update-fn))})
+
+(defmethod mutate 'admin/update-record
+  [{:keys [state]} _ {:keys [ident update-fn]}]
+  {:action (fn []
+             (swap! state update-in ident update-fn))})
 
 (defmethod mutate 'admin/merge-map
   [{:keys [state]} _ {:keys [map-to-merge]}]
@@ -104,3 +118,22 @@
              (timbre/info "you called debug/bla mutation")
              (timbre/info "Params: " params)
              )})
+
+(defmethod mutate 'admin/cache-records
+  [{:keys [state component]} _ {:keys [query-key cached-query-key get-records
+                                       update-cache]}]
+  {:action (fn []
+             (let [{:keys [om-path]} (meta (om/props component))
+                   records (if get-records
+                             (get-records @state)
+                             (get-in @state (conj om-path query-key)))]
+
+               ;; (timbre/info :#pp (get-in @state om-path))
+
+               (timbre/info :#pp records)
+               (if update-cache
+                 (update-cache state om-path records)
+                 (do
+                   (swap! state update-in (conj om-path cached-query-key query-key) #(into (or % []) records))
+                   (swap! state assoc-in (conj om-path query-key) nil)))
+               ))})

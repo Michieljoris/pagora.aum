@@ -417,8 +417,9 @@
         list-table (get-in @state [:client/page-state page :list-table])
         item-batch-path [page :list :item-batch (or list-table table) :rows]
         item-batch (get-in @state item-batch-path)
+        ;; has-meta? (and (map? item-batch) (some? (:meta item-batch)))
         ;; item-batch (cond-> item-batch
-        ;;              (map? item-batch) (get :rows))
+        ;;              has-meta? :rows)
         ]
       (swap! state update-in item-batch-path (constantly nil))
       (update-page-state state table (fn [{:keys [new-records cache] :as table-state}]

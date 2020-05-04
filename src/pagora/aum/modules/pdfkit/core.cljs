@@ -1,3 +1,4 @@
+;;Copied from https://github.com/whamtet/cljs-pdfkit
 (ns pagora.aum.modules.pdfkit.frontend.core
   (:require
    [pagora.aum.modules.pdfkit.frontend.optimize-dom :as optimize-dom]

@@ -28,7 +28,7 @@
 (defn make-aum-remote [app-config]
   (fn [query response-cb]
     (let [chsk-send! (websocket/get-chsk-send!-fn app-config)]
-      (chsk-send! [:aum/query query] (:websocket-timeout app-config 8000)
+      (chsk-send! [:aum/query {:query query}] (:websocket-timeout app-config 8000)
                   response-cb))))
 
 (defn make-value-merge-hook [hooks]

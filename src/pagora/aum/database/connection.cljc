@@ -2,7 +2,7 @@
   (:require
    [taoensso.timbre :as timbre]
    [integrant.core :as ig]
-
+   #?(:clj [pagora.aum.database.jdbc-joda-time])
    #?(:clj [clj-time.jdbc])
    [pagora.clj-utils.database.connection :refer [make-db-connection]]
    ))

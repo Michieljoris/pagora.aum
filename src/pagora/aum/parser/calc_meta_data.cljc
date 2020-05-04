@@ -33,12 +33,13 @@
           sql-fn-args (cond-> sql-fn-args
                         (:ignore-where? calculation-params)
                         (assoc :where-clause (make-cond-scope-clause)))]
-      (case sql-fn
-        :get-cols-from-table (sql env :count sql-fn-args)
-        ;;TODO-aum: make this thing extendable. user+subscription doesn't belong here. Eg. have user pass in functions
-        :user+subscription (sql env sql-fn (assoc sql-fn-args :count? true))
-        :get-joined-rows (sql env sql-fn (assoc sql-fn-args :count? true))
-        :not-implemented))))
+      (let [sql-fn-args (dissoc sql-fn-args :limit-clause :order-by-clause)]
+        (case sql-fn
+          :get-cols-from-table (sql env :count sql-fn-args)
+          ;;TODO-aum: make this thing extendable. user+subscription doesn't belong here. Eg. have user pass in functionsq
+          :user+subscription (sql env sql-fn (assoc sql-fn-args :count? true))
+          :get-joined-rows (sql env sql-fn (assoc sql-fn-args :count? true))
+          :not-implemented)))))
 
 (defmethod calc-meta-data :count-by-join
   [env rows {:keys [sql-fn sql-fn-args return-empty-vector? calculation-params]}]
@@ -62,9 +63,10 @@
           sql-fn-args (cond-> sql-fn-args
                         (:ignore-where? calculation-params)
                         (assoc :where-clause (make-cond-scope-clause)))]
-      (case sql-fn
-        :get-cols-from-table (sql env :count-by-join sql-fn-args)
-        :not-implemented))))
+      (let [sql-fn-args (dissoc sql-fn-args :limit-clause :order-by-clause)]
+        (case sql-fn
+          :get-cols-from-table (sql env :count-by-join sql-fn-args)
+          :not-implemented)))))
 
 
 

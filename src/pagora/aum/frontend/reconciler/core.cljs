@@ -248,9 +248,15 @@
     ;; server websockets are buggered. Perhaps set some "connection down" marker,
     ;; eg big marker on app bar or something.
     ;; response can be :chsk/timeout, :chsk/closed
-    (swap! state assoc :client/error
-           {:error "Error sending query/mutation"
-            :query query :response response})
+    (cond
+      (= response :chsk/timeout)
+      (swap! state assoc :client/error
+             {:error "Connection to backend timed out. Please notify DC"
+              ;; :query query :response response
+              })
+      :else (swap! state assoc :client/error
+                   {:error "Error sending query/mutation"
+                    :query query :response response}))
     [(:app/page @state)]))
 
 (defn handle-response
