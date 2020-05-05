@@ -1,33 +1,32 @@
-(ns pagora.aum.modules.auth.subscriptions.init)
-
-(ns subscriptions.init
+(ns pagora.aum.modules.auth.subscriptions.init
   (:require
-   [app.config :refer [config]]
-   [cuerdas.core :as str]
    [clojure.set :as set]
    [clojure.data.json :as json]
-   [bilby.parser :as bilby-parser]
+   [pagora.aum.parser.core :as aum-parser]
    [clj-time.core :as t]
    [clj-time.coerce :as c]
    [clj-time.format :as f]
    [clojure.java.jdbc  :as jdbc]
-   [parser.core :refer [parser]]
-   [database.config :as db-config]
-   [database.connection :refer [db-conn]]
    [taoensso.timbre :as timbre :refer [error info]]
-   [bilby.database.query :refer [sql]]
-   [event-store.create :as event-store-create]
-   [clojure.set :as set]
-   [subscriptions.core :as sub]
-   [subscriptions.time :as time]
+   [pagora.aum.database.query :refer [sql]]
+   [pagora.aum.modules.auth.subscriptions.core :as sub]
+   [pagora.aum.modules.auth.subscriptions.time :as time]
    )
   )
 
 
+;; [database.config :as db-config]
+(def db-config nil)
+;; [parser.core :refer [parser]]
+(def parser nil)
+;; [database.connection :refer [db-conn]]
+(def db-conn nil)
+   ;; [app.config :refer [config]]
+
 (defn make-table-config [table {:keys [blacklist table-name]}]
   {:root true
    :table-name table-name
-   :columns (-> db-config/db-config table :columns)
+   :columns (-> db-config table :columns)
    :read {:role {"super-admin" {:blacklist (or blacklist [])}}}})
 
 (def table-configs {:user {:blacklist [:encrypted-password :confirmation-token :remember-token]}})
@@ -132,7 +131,7 @@
         db-config (assoc db-config
                          :event-store (:event-store db-config/db-config)
                          :subscription (:subscription db-config/db-config))
-        env (bilby-parser/parser-env {:parser-config {:print-exceptions true
+        env (aum-parser/parser-env {:parser-config {:print-exceptions true
                                                       :limit-max batch-size
                                                       :event-store-disabled true
                                                       :normalize false

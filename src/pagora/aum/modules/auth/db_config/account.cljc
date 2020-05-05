@@ -1,15 +1,14 @@
 ;; TODO-aum: this is a copy from old dc-admin, update from templates brach
 (ns pagora.aum.modules.auth.db-config.account
-  #?(:cljs (:require-macros [bilby.database.validate.Rule :refer [rule]]))
+  #?(:cljs (:require-macros [pagora.aum.database.validate.Rule :refer [rule]]))
   (:require
-   [bilby.database.validate.core :as bv :refer [Rules]]
-   #?(:clj [bilby.database.validate.Rule :refer [rule]])
-   [bilby.database.validate.rules :as rule :refer [require-keys]]
-   [bilby.database.query :refer [sql]]
-   [digicheck.common.util :as du]
-   [clojure.pprint :refer [pprint]]
+   [pagora.aum.database.validate.core :as bv :refer [Rules]]
+   #?(:clj [pagora.aum.database.validate.Rule :refer [rule]])
+   [pagora.aum.database.validate.rules :as rule :refer [require-keys]]
+   ;; [pagora.aum.database.query :refer [sql]]
+   [pagora.clj-utils.core :as cu]
    [taoensso.timbre :as timbre :refer [error info]]
-   [cuerdas.core :as str]))
+))
 
 ;;(dev/get-all-columns-of-table "groups")
 
@@ -198,16 +197,16 @@
 (defn validate-file-upload-for-group
   [env {:keys [file-path type id file-name] :as file-info}]
   (Rules
-   (rule (and (number? (du/parse-natural-number id))
+   (rule (and (number? (cu/parse-natural-number id))
               (not (empty? file-name)))
          "table id should be set properly and file-name should be set"
          {:id id :file-path file-path :file-name file-name})
    (validate-file-type-for-group file-info)))
 
 (defn validate-supergroup-access-for-file [{:keys [user] :as env} {:keys [file-path id] :as file-info}]
-  (let [id (du/parse-natural-number id)]
+  (let [id (cu/parse-natural-number id)]
     (rule (or (= (:group-id user) id)
-              (du/includes? (:subgroup-ids user) id))
+              (cu/includes? (:subgroup-ids user) id))
           "group id or one of subgroup ids of user has to be same as id of the group associated with the file"
           {:file-path file-path :id id :user-group-id (:group-id user)
            :user-subgroup-ids (:subgroup-ids user)})))

@@ -115,7 +115,7 @@
                  (seq query-cols)
                  (zero? (count cols))
                  (:query-log parser-config))
-            (warn :#r "No columns requested for " (:t2 sql-fn-args)
+            (timbre/warn :#r "No columns requested for " (:t2 sql-fn-args)
                   ", so no rows fetched.\nPerhaps no blacklist or whitelist is configured for this table?."))
         rows     (if (or (nil? query-cols)
                          (and (seq? query-cols) (empty? query-cols))
@@ -292,7 +292,7 @@
         whitelisted-cols (filterv #(cu/includes? whitelist %) cols)
         removed-cols (difference (set cols) (set whitelisted-cols))]
     (when (and (seq removed-cols) (:query-log parser-config))
-      (warn :#r "Removed blacklisted or non existing columns from query:" removed-cols))
+      (timbre/warn :#r "Removed blacklisted or non existing columns from query:" removed-cols))
     [whitelist whitelisted-cols scope]))
 
 (defn extract-join-table-cols [cols join-table-kw]
@@ -327,12 +327,10 @@
                            "t2_" "") ;aliasing for many-to-many to itself
         whitelisted-cols (with-meta whitelisted-cols {:cols cols})]
 
-    (when (and (seq removed-cols) (:query-log parser-config))
-      (warn :#r "Removed blacklisted or non existing columns from query:" removed-cols))
     (if (zero? (count whitelisted-cols))
       (do
         (when (:query-log parser-config)
-          (warn :#r "No columns requested for " t2
+          (timbre/warn :#r "No columns requested for " t2
                 ", so no rows fetched.\nPerhaps no blacklist or whitelist is configured for this table?.")
           )
         []) ;if all cols are blacklisted, which is the default with nothing set in db-config, then return no rows

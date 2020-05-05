@@ -1,22 +1,22 @@
 (ns pagora.aum.modules.auth.subscriptions.core
   (:require
    [taoensso.timbre :as timbre :refer [error info warn]]
-   [bilby.database.query :refer [sql]]
-   [bilby.database.clauses :as db-clauses]
+   [pagora.aum.database.query :refer [sql]]
+   [pagora.aum.database.clauses :as db-clauses]
    [clj-time.core :as t]
    [clj-time.local :as l]
    [clj-time.format :as f]
    [clj-time.coerce :as c]
-   [subscriptions.time :as time]
+   [pagora.aum.modules.auth.subscriptions.time :as time]
    ))
 
 
-;;CHIN
+;;starter-app
 
-;;TODO: set updated-at, created-at columns to not nullable in chin migration!!!
+;;TODO: set updated-at, created-at columns to not nullable!!!
 ;;TODO: add time-zone-id column to user table
 
-;;BILBY
+;;AUM
 
 ;;DONE: sort out joda/inst/sql/string of dates
 ;;DONE: adjust return value of result-set-read-column-* in query for timezone
@@ -27,7 +27,7 @@
 ;;To set timezone:
 ;;sudo dpkg-reconfigure tzdata
 ;;sudo systemctl restart mariadb
-;;restart bilby
+;;restart app
 
 ;;DONE: sort out throwing of exceptions in hooks. Hooks do their own sql query
 ;;potentially, so again they're wrapped in a transaction
@@ -52,12 +52,12 @@
 ;;DONE: add name of month to downloaded csv
 ;;DONE: revert button icon is gone!!!!
 
-;;TODO: verify: group-id is added to sub, users without group-id don't get a sub!!!!
+;;TODO: verify: account-id is added to sub, users without account-id don't get a sub!!!!
 ;;TODO: don't use virtual table if not needed
 ;;TODO: pass in today for validation!!!
 ;;TODO: write test suite for subscriptions
 ;;TODO: chin: add time-zone-id to user migration
-;;TODO: chin: add group-id to sub migration
+;;TODO: chin: add account-id to sub migration
 
 ;;LATER:
 ;;TODO later: auto renew subscription
@@ -96,10 +96,10 @@
 (defn make-user-subscription
   ([user entry-at]
    (make-user-subscription user entry-at nil))
-  ([{:keys [id group-id]} entry-at expired-at]
-   {:group-id group-id :user-id id :entry-at entry-at :expired-at expired-at}))
-;; (make-user-subscription {:id 1 :group-id 2} 100)
-;; => {:group-id 2, :user-id 1, :entry-at 100, :expired-at nil}
+  ([{:keys [id account-id]} entry-at expired-at]
+   {:account-id account-id :user-id id :entry-at entry-at :expired-at expired-at}))
+;; (make-user-subscription {:id 1 :account-id 2} 100)
+;; => {:account-id 2, :user-id 1, :entry-at 100, :expired-at nil}
 
 (defn update-subscription-from-user-deleted
   "*Updates a user's subscription correctly based on whether the user is

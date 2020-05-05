@@ -13,7 +13,7 @@
    [clojure.pprint :refer [pprint]]
 
    [pagora.aum.modules.download.frontend.data :refer [make-data make-url]]
-   [pagora.aum.modules.download.csv-plugin.core]
+   [pagora.aum.modules.download.frontend.csv-plugin.core]
    ))
 
 (defn prompt-download [data {:keys [type filename]}]

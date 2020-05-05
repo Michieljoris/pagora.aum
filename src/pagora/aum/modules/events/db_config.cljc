@@ -1,7 +1,7 @@
 (ns pagora.aum.modules.events.db-config
   (:require
    [taoensso.timbre :as timbre]
-   [database.table.util :refer [master-account-admin-scope account-admin-scope]]))
+   [pagora.aum.modules.auth.db-config.util :refer [master-account-admin-scope account-admin-scope]]))
 
 (def config
   {:root true

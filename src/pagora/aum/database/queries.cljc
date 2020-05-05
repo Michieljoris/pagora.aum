@@ -11,7 +11,7 @@
   #?(:clj
      (:refer-clojure :exclude [count]))
   #?(:clj (:require [hugsql.core :as hugsql]
-                    [aum.database.adapter.clojure-java-jdbc :as clojure-java-jdbc]
+                    [pagora.aum.database.adapter.clojure-java-jdbc :as clojure-java-jdbc]
                     [hugsql.parameters :as hugsql-parameters]
                     [clojure.string :as string])
      :cljs (:require [pagora.aum.database.build-sql :as build-sql])))
@@ -43,7 +43,7 @@
                                                      ;;In this adapter we add a hint to max exec time since we're querying events now as well
                                                      ;;and there are a lot of them.
                                                      ;;TODO-aum: fixed in hugsql cersion 0.5.1
-                                                     :adapter (clojure-java-jdbc/bilby-hugsql-adapter-clojure-java-jdbc)
+                                                     :adapter (pagora.aum.database.adapter.clojure-java-jdbc/aum-hugsql-adapter-clojure-java-jdbc)
                                                      :max-execution-time 10000
 
                                                      }))

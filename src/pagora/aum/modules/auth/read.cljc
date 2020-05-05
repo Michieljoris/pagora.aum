@@ -1,6 +1,12 @@
-(ns pagora.aum.modules.auth.read)
+(ns pagora.aum.modules.auth.read
+  (:require
+   [cuerdas.core :as str]
+   [taoensso.timbre :as timbre]
+   [pagora.aum.util :as au]
+   [pagora.aum.parser.read :as aum])
+  )
 
-(defmethod bilby/read :user-scoped-by-subscription
+(defmethod aum/read :user-scoped-by-subscription
   [{:keys [user state parser query parser-config] :as env} _ params]
   (let [base-table :user
         virtual-table :user+subscription
@@ -36,8 +42,8 @@
         with-meta? (map? result)
         rows (cond-> result
                with-meta? :rows)
-        base-table-by-id (bu/table->table-by-id base-table)
-        virtual-table-by-id (bu/table->table-by-id virtual-table)
+        base-table-by-id (au/table->table-by-id base-table)
+        virtual-table-by-id (au/table->table-by-id virtual-table)
         data-is-normalized? (:normalize parser-config)
         strip-base-table-prefix #(into {}
                                        (->> %1

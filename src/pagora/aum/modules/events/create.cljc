@@ -1,18 +1,15 @@
 (ns pagora.aum.modules.events.create
   (:require
-   ;; [clj-time.core :as t]
-   [digicheck.common.util :as du]
-   [app.config :refer [config]]
+   [pagora.clj-utils.core :as cu]
    #?@(:clj
        [[clj-time.core :as t]
         [clj-time.coerce :as c]
         [clj-time.format :as f]])
    #?(:clj [clojure.data.json :as json])
-   [clojure.pprint :refer [pprint]]
    [taoensso.timbre :as timbre :refer [error info]]
    [clojure.pprint :refer [pprint]]
    #?(:clj [jansi-clj.core :as jansi])
-   [bilby.database.query :refer [sql]]))
+   [pagora.aum.database.query :refer [sql]]))
 
 (defn find-highest-seq-no
   "Given event-name returns highest sequence number for that event, or
@@ -81,7 +78,7 @@
   "Returns an event map that can be written to the event-store"
   [{:keys [user] :as env} event-name table id data]
   (let [data (into {} (map (fn [[k v]]
-                             [(du/hyphen->underscore (name k)) (prepare-for-json v)])
+                             [(cu/hyphen->underscore (name k)) (prepare-for-json v)])
                            data))]
     {:name event-name
      :data

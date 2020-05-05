@@ -10,8 +10,8 @@
 
    [pagora.aum.util :as au]
    #?@(:clj
-       [[subscriptions.core :as subs]
-        [subscriptions.time :as time]
+       [[pagora.aum.modules.auth.subscriptions.core :as subs]
+        [pagora.aum.modules.auth.subscriptions.time :as time]
         [crypto.password.bcrypt :as bcrypt]])
    [clojure.set :as set]
    [taoensso.timbre :as timbre :refer [info]]))

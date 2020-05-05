@@ -2,7 +2,6 @@
   (:require
    ;; [database.table.user :as user]
    ;; [database.table.subscription :as subscription]
-   [bilby.util :as bu]
    [taoensso.timbre :as timbre]
    ))
 

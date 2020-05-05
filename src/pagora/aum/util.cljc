@@ -476,3 +476,10 @@
 
 (defn is-development? [{:keys [clj-env]}]
   (= clj-env :dev))
+
+(defn prefix-keyword [prefix kw]
+  (->> kw
+       name (str prefix) keyword))
+
+(defn prefix-keywords [prefix kws]
+  (mapv (partial prefix-keyword prefix) kws))

@@ -1,6 +1,6 @@
 (ns pagora.aum.frontend.parser.mutate-record
   (:require [pagora.aum.util :as au]
-            [pagora.clj-utils.core :as cu :refer [deep-merge string->number]]
+            [pagora.clj-utils.core :as cu :refer [string->number]]
             [pagora.aum.om.next :as om]
             [cljs.pprint :refer [pprint]]
             [pagora.aum.frontend.parser.mutate :refer [mutate post-remote]]

@@ -136,17 +136,19 @@
 (defn wrap-with-bindings [datetime-return-type f]
   (case datetime-return-type
     :joda (f)
-    (with-bindings
-      {#'jdbc-joda-time/result-set-read-column-timestamp
-       ;;mysql types: TimeStamp and DateTime
-       #(new java.sql.Timestamp (adjust-for-tz %))
-       #'jdbc-joda-time/result-set-read-column-date
-       ;;mysql type: Date
-       #(new java.sql.Date (adjust-for-tz %))
-       #'jdbc-joda-time/result-set-read-column-time
-       ;;mysql type: Time
-       #(new java.sql.Time(adjust-for-tz %))}
-      (f))))
+    (f)
+    ;; (with-bindings
+    ;;   {#'pagora.aum.database.jdbc-joda-time/result-set-read-column-timestamp
+    ;;    ;;mysql types: TimeStamp and DateTime
+    ;;    #(new java.sql.Timestamp (adjust-for-tz %))
+    ;;    #'pagora.aum.database.jdbc-joda-time/result-set-read-column-date
+    ;;    ;;mysql type: Date
+    ;;    #(new java.sql.Date (adjust-for-tz %))
+    ;;    #'pagora.aum.database.jdbc-joda-time/result-set-read-column-time
+    ;;    ;;mysql type: Time
+    ;;    #(new java.sql.Time(adjust-for-tz %))}
+    ;;   (f))
+    ))
 
 (defn sql
   "Executes fun with db connection from env as second argument Add a

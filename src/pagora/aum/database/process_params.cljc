@@ -2,6 +2,7 @@
   (:require [pagora.aum.database.inspect :as db-inspect]
             [pagora.aum.security :as security]
             [pagora.clj-utils.core :as cu]
+            [pagora.aum.database.query :refer [sql]]
             [pagora.aum.database.clauses :as clauses]
             [pagora.aum.database.query :as q]
             [cuerdas.core :as str]
@@ -109,7 +110,7 @@
                    records)
         cols (hyphened-keywords->underscored-strings cols)]
     (assoc params
-           :table-keyword table ;;used in bilby validate-sql-fn multimethod
+           :table-keyword table ;;used in aum validate-sql-fn multimethod
            :table (db-inspect/table-name env table)
            :vals vals :cols cols)))
 

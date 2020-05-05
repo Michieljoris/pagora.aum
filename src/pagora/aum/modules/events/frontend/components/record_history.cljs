@@ -1,17 +1,22 @@
 (ns pagora.aum.modules.events.frontend.components.record-history
   (:require
-   [digicheck.common.util :as du]
+   [pagora.clj-utils.core :as cu]
    [cuerdas.core :as str]
    [clojure.set :as set]
-   [cljs-react-material-ui.core :as ui]
-   [bilby.util :as bu]
-   [components.misc :refer [spinner spinner-markup]]
+   [pagora.aum.util :as au]
    [sablono.core :as html :refer-macros [html]]
-   [om.next :as om]
-   [common.i18n :refer [translate]]
+   [pagora.aum.om.next :as om]
+   ;; [common.i18n :refer [translate]]
    [taoensso.timbre :as timbre]
    [clojure.pprint :refer [pprint]]
-   [clojure.set :as set]))
+
+   ;;TODO-aum
+   ;; [cljs-react-material-ui.core :as ui]
+   ;; [components.misc :refer [spinner spinner-markup]]
+   ))
+
+;;TODO-aum
+(defn translate [_ _])
 
 (def event-store-props [:id :name :entity-type :entity-id :sequence-no
                         :data :created-at :user-id {:event-user [:id :name]}])
@@ -40,7 +45,7 @@
   (let [json-prop #(str "%\"" % "\":%")
         make-like-clause #(vector :data :like %)
         xf (comp (map name)
-                 (map du/hyphen->underscore)
+                 (map cu/hyphen->underscore)
                  (map json-prop)
                  (map make-like-clause))
         like-clauses [:or (into [] xf cols)]]
@@ -50,8 +55,8 @@
                      ~like-clauses]]})))
 
 (defn pprint-json [t locale cols json]
-  (let [data (du/json->clj json)
-        data (du/transform-keys (comp keyword du/underscore->hyphen name) data)
+  (let [data  nil ;;(cu/json->clj json) ;;TODO-aum
+        data (cu/transform-keys (comp keyword cu/underscore->hyphen name) data)
         props (keys data)
         props (sort props)
         cols (or cols props)
@@ -65,7 +70,7 @@
                             v (cond
                                 (boolean? v) (str v)
                                 (contains? #{:created_at :updated_at} k)
-                                (du/from-now t v (:locale locale))
+                                (cu/from-now t v (:locale locale))
                                 ;; (sequential? v) (with-out-str (pprint v))
                                 :else (with-out-str (pprint v)))
                             ]
@@ -82,7 +87,7 @@
                      (str/includes? name "created") (str (t "was") " "  (t "created"))
                      (str/includes? name "modified") (str (t "was") " " (t "updated"))
                      :else (str ", " (str/replace name "-" " ")))
-        created-at (du/from-now t created-at (:locale locale))]
+        created-at (cu/from-now t created-at (:locale locale))]
     [:div
      [:span (str (str/capital entity-type) " " (t "with id") " " entity-id " ")]
      [:span {:style {:font-style "italic"}} event-type]
@@ -126,79 +131,81 @@
         all-events (concat cached-events events)]
 
     [:div {:style {:font-size 15}}
-     (ui/icon-button {:on-click (fn []
-                                  (om/update-state! this update :side-drawer-open? not)
-                                  (case fetch-events
-                                    :record-type-events
-                                    (om/transact! this `[(admin/set-params
-                                                          ~{:event-store-params
-                                                            {:order-by [[:id :desc]],
-                                                             :limit {:count 40}
-                                                             :where [:entity-type := (name table)]}})
-                                                         :event-store])
-                                    :record-events
-                                    (do
-                                      (om/update-state! this assoc :page 0)
-                                      (om/transact! this `[(admin/clear-key {:key :load-data})
-                                                           (admin/set-query-key {:key :cache :value nil})
-                                                           {:load-data
-                                                            [({~table
-                                                               [:id ~(event-query-for-record table page page-size)]}
-                                                              {:where [:id := ~(:id record)]})]}]))
-                                    :record-prop-events
-                                    (om/transact! this `[ (admin/clear-key {:key :load-data})
-                                                         {:load-data
-                                                          [({~table
-                                                             [:id ~(event-query-for-prop table cols)]}
-                                                            {:where [:id := ~(:id record)]})]}])
+     ;;TODO-aum
+     ;; (ui/icon-button {:on-click (fn []
+     ;;                              (om/update-state! this update :side-drawer-open? not)
+     ;;                              (case fetch-events
+     ;;                                :record-type-events
+     ;;                                (om/transact! this `[(admin/set-params
+     ;;                                                      ~{:event-store-params
+     ;;                                                        {:order-by [[:id :desc]],
+     ;;                                                         :limit {:count 40}
+     ;;                                                         :where [:entity-type := (name table)]}})
+     ;;                                                     :event-store])
+     ;;                                :record-events
+     ;;                                (do
+     ;;                                  (om/update-state! this assoc :page 0)
+     ;;                                  (om/transact! this `[(admin/clear-key {:key :load-data})
+     ;;                                                       (admin/set-query-key {:key :cache :value nil})
+     ;;                                                       {:load-data
+     ;;                                                        [({~table
+     ;;                                                           [:id ~(event-query-for-record table page page-size)]}
+     ;;                                                          {:where [:id := ~(:id record)]})]}]))
+     ;;                                :record-prop-events
+     ;;                                (om/transact! this `[ (admin/clear-key {:key :load-data})
+     ;;                                                     {:load-data
+     ;;                                                      [({~table
+     ;;                                                         [:id ~(event-query-for-prop table cols)]}
+     ;;                                                        {:where [:id := ~(:id record)]})]}])
 
-                                    ))
-                      :title help}
-                     (ui/font-icon {:class-name "icon-clock-o"}))
+     ;;                                ))
+     ;;                  :title help}
+     ;;                 (ui/font-icon {:class-name "icon-clock-o"}))
      (let [open? (:side-drawer-open? (om/get-state this))]
-       (ui/drawer
-        {:docked false
-         :width (if (= left-or-right :left)
-                  "32%" "68%")
-         :open-secondary (= left-or-right :right)
-         :open open?
-         :on-request-change #(om/update-state! this assoc :side-drawer-open? false)}
-        ;; (timbre/info :#pp {:events events
-        ;;                    :cached-events cached-events})
+       ;; (ui/drawer
+       ;;  {:docked false
+       ;;   :width (if (= left-or-right :left)
+       ;;            "32%" "68%")
+       ;;   :open-secondary (= left-or-right :right)
+       ;;   :open open?
+       ;;   :on-request-change #(om/update-state! this assoc :side-drawer-open? false)}
+       ;;  ;; (timbre/info :#pp {:events events
+       ;;  ;;                    :cached-events cached-events})
 
-        (when open?
-          (html
-           (if (or (seq events) (seq cached-events))
-             [:div
-              (if (seq all-events)
-                (history-block this {:events all-events :cols cols})
-                (t "No result"))
-              [:div {:style {:margin-bottom 30 :float "right" :margin-top 10 :margin-right 10}}
-               (when (and
-                      (not (zero? (count events)))
-                      (zero? (rem (count events) page-size)))
-                 (if (sequential? events)
-                   (ui/flat-button
-                    {:label (t "More..")
-                     :on-click (fn []
-                                 (let [page (inc page)]
-                                   (om/update-state! this assoc :page page)
-                                   (om/transact! this `[(admin/clear-key {:key :load-data})
-                                                        (admin/cache-records
-                                                         {:get-records
-                                                          ~(fn [app-state]
-                                                             (get-in app-state [(bu/table->table-by-id table)
-                                                                                (:id record) :event]))
-                                                          :update-cache
-                                                          ~(fn [state om-path records]
-                                                             (swap! state assoc-in [(bu/table->table-by-id table)
-                                                                                    (:id record) :event] nil)
-                                                             (swap! state update-in (conj om-path :cache :event) #(into (or % []) records))
-                                                             )
-                                                          })
-                                                        {:load-data
-                                                         [({~table
-                                                            [:id ~(event-query-for-record table page page-size)]}
-                                                           {:where [:id := ~(:id record)]})]}])))})
-                   (spinner-markup)))]]
-             (spinner nil))))))]))
+       ;;  (when open?
+       ;;    (html
+       ;;     (if (or (seq events) (seq cached-events))
+       ;;       [:div
+       ;;        (if (seq all-events)
+       ;;          (history-block this {:events all-events :cols cols})
+       ;;          (t "No result"))
+       ;;        [:div {:style {:margin-bottom 30 :float "right" :margin-top 10 :margin-right 10}}
+       ;;         (when (and
+       ;;                (not (zero? (count events)))
+       ;;                (zero? (rem (count events) page-size)))
+       ;;           (if (sequential? events)
+       ;;             (ui/flat-button
+       ;;              {:label (t "More..")
+       ;;               :on-click (fn []
+       ;;                           (let [page (inc page)]
+       ;;                             (om/update-state! this assoc :page page)
+       ;;                             (om/transact! this `[(admin/clear-key {:key :load-data})
+       ;;                                                  (admin/cache-records
+       ;;                                                   {:get-records
+       ;;                                                    ~(fn [app-state]
+       ;;                                                       (get-in app-state [(au/table->table-by-id table)
+       ;;                                                                          (:id record) :event]))
+       ;;                                                    :update-cache
+       ;;                                                    ~(fn [state om-path records]
+       ;;                                                       (swap! state assoc-in [(au/table->table-by-id table)
+       ;;                                                                              (:id record) :event] nil)
+       ;;                                                       (swap! state update-in (conj om-path :cache :event) #(into (or % []) records))
+       ;;                                                       )
+       ;;                                                    })
+       ;;                                                  {:load-data
+       ;;                                                   [({~table
+       ;;                                                      [:id ~(event-query-for-record table page page-size)]}
+       ;;                                                     {:where [:id := ~(:id record)]})]}])))})
+       ;;             (spinner-markup)))]]
+       ;;       (spinner nil)))))
+       )]))

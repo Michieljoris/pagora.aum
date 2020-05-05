@@ -1,23 +1,21 @@
 (ns pagora.aum.modules.auth.subscriptions.db-config
   (:require
-   [bilby.database.validate.core :as bv :refer [Rules]]
-   [bilby.database.query :refer [sql]]
-   [database.table.util :refer [supergroup-admin-scope group-admin-scope
-                                validate-supergroup-admin-access
-                                not-deleted-scope
-                                validate-group-admin-access
-                                group-id-has-to-be-valid]]
-   [subscriptions.core :as subs]
-   [subscriptions.time :as time]
+   [pagora.aum.database.validate.core :as bv :refer [Rules]]
+   [pagora.aum.database.query :refer [sql]]
+   [pagora.aum.modules.auth.db-config.util :refer [master-account-admin-scope account-admin-scope
+                                                   validate-master-account-admin-access
+                                                   not-deleted-scope
+                                                   validate-account-admin-access
+                                                   account-id-has-to-be-valid]]
+   [pagora.aum.modules.auth.subscriptions.core :as subs]
+   [pagora.aum.modules.auth.subscriptions.time :as time]
    [clj-time.core :as t]
    [clj-time.format :as f]
    [clj-time.coerce :as c]
-   [bilby.database.validate.Rule :refer [rule]]
-   [bilby.database.validate.rules :as rule]
-   [digicheck.common.util :as du]
-   [clojure.pprint :refer [pprint]]
+   [pagora.aum.database.validate.Rule :refer [rule]]
+   [pagora.aum.database.validate.rules :as rule]
    [taoensso.timbre :as timbre :refer [error info]]
-   [cuerdas.core :as str]))
+))
 
 ;;Goal is to have an easy way to authorize users based on a subscription, and to
 ;;have a straightforward way to calculate active users over a period for billing
@@ -38,11 +36,11 @@
 ;;for that. Also you'd have to add that sub on the user to the subscription
 ;;table when doing calculations on aggregates.
 
-;;To facilitate gradual introduction of this feature authorization in both bilby
+;;To facilitate gradual introduction of this feature authorization in both aum
 ;;and chin can keep relying on the deleted flag on a user because initially this
 ;;subs table can be used as a way to just keep historical records.
 ;;
-;;Whenever a user's deleted flag is flipped a hook in bilby can update the sub
+;;Whenever a user's deleted flag is flipped a hook in aum can update the sub
 ;;for that user, preferably atomically. Turning on a user creates a new sub with
 ;;expiry date set to nil. Turning off sets the last sub's expiry date to today.
 ;;To prevent superfluous subs from getting created if the user is turned on and
@@ -55,9 +53,9 @@
 ;;on any other functionality, hence it can be deployed without much risk, and it
 ;;can be monitored/tested for a bit to see if it works ok
 
-;;Next step would be to add a button to the group's page that calculates a list
+;;Next step would be to add a button to the account's page that calculates a list
 ;;of active users over a period. The logic for the sql query would be:
-;;Find all subs where user-id in (all the group's users' ids) AND
+;;Find all subs where user-id in (all the account's users' ids) AND
 ;; (not (or (and (some? expired-at)
 ;;               (expired-at < start))
 ;;          (entry-at > end)))
@@ -67,7 +65,7 @@
 ;;of 2019. And then push the button to export this to csv or pdf etc.
 
 ;;If all goes well, the next step would be to enable authorization based on the
-;;subs table instead of on the deleted flag. In bilby.security is a sample fn
+;;subs table instead of on the deleted flag. In aum.security is a sample fn
 ;;called validate-subscription.
 ;;
 ;;This would then make possible the adding of the feature of manuallly updating
@@ -76,7 +74,7 @@
 
 ;;Instead of charging by the whole month it's also possible to charge by the
 ;;day. It's a simple matter of adding the number of days a user is 'on', for all
-;;the users in a group and comparing that to how much you've invoiced this group so far.
+;;the users in a account and comparing that to how much you've invoiced this account so far.
 
 ;;A complication is that different users might be in different timezones. The
 ;;validations below correct for this by taking into account the timezone of a
@@ -102,7 +100,7 @@
 ;;TODO
 ;;- DONE script to write current-subscriptions from deleted flags on users
 ;;- DONE add hook on save-user for when deleted flag is updated that updates subscriptions.
-;;- add authorization based on subs table to bilby and chinchilla
+;;- add authorization based on subs table to aum and chinchilla
 
 
 ;;An alternative to relying on the subs table getting updated via a hook on
@@ -116,7 +114,7 @@
 ;;this sub record using the similar validations as below. Authorization becomes
 ;;rather straightforward then, just pull up the sub data for a user. For
 ;;calculation purposes we'd have to search for all sub updates for a user in the
-;;event store, grouped by entry-date, and use the latest one per entry-date.
+;;event store, accounted by entry-date, and use the latest one per entry-date.
 ;;Again, this relies on validation so that expiry dates are never set in the
 ;;past for example, amongst other things. This all presupposes a working event
 ;;store. With some effort you could also introduce this in steps. But it won't
@@ -135,9 +133,9 @@
              :deleted {:type :boolean}
              :entry-at :date ;;grant access from 12am on this date
              :expired-at :date ;;deny access from 12am on this date
-             ;; TODO: Or set it on group/user. But we will need a timezone. To decide on access
+             ;; TODO: Or set it on account/user. But we will need a timezone. To decide on access
              ;; offset utc with the timezone.
-             :group-id :int
+             :account-id :int
              :invalidated {:type :boolean} ;;expired_at is only a date (without time), you might want to turn off access immediately
              :updated-at :date-time
              :created-at :date-time})
@@ -148,30 +146,30 @@
    :columns (keys schema)
    :read {:role {"super-admin" {:blacklist []
                                 :scope not-deleted-scope}
-                 "supergroup-admin" {:blacklist []
+                 "master-account-admin" {:blacklist []
                                      :scope [:and [not-deleted-scope
-                                                   supergroup-admin-scope]]}
-                 "group-admin" {:blacklist []
+                                                   master-account-admin-scope]]}
+                 "account-admin" {:blacklist []
                                 :scope [:and [not-deleted-scope
-                                              group-admin-scope]]}}}
+                                              account-admin-scope]]}}}
    :create {:role {"super-admin" {:blacklist [:updated-at :created-at :deleted]}
-                   "supergroup-admin" {:blacklist [:updated-at :created-at :deleted]}
-                   "group-admin" {:blacklist [:updated-at :created-at :deleted]}}}
+                   "master-account-admin" {:blacklist [:updated-at :created-at :deleted]}
+                   "account-admin" {:blacklist [:updated-at :created-at :deleted]}}}
    :update {:role {"super-admin" {:whitelist [:deleted :entry-at :expired-at :invalidated]
                                   :scope not-deleted-scope}
-                   "supergroup-admin" {:whitelist [:deleted :entry-at :expired-at :invalidated]
+                   "master-account-admin" {:whitelist [:deleted :entry-at :expired-at :invalidated]
                                        :scope [:and [not-deleted-scope
-                                                     supergroup-admin-scope]]}
-                   "group-admin" {:whitelist [:deleted :entry-at :expired-at :invalidated]
+                                                     master-account-admin-scope]]}
+                   "account-admin" {:whitelist [:deleted :entry-at :expired-at :invalidated]
                                   :scope [:and [not-deleted-scope
-                                                group-admin-scope]]}}}})
+                                                account-admin-scope]]}}}})
 
 (defn get-subscription-user
   "Retrieve the user whose subscription we're trying to create/update"
   [env {:keys [user-id]}]
   (let [where-clause ["where `id` = ?" user-id]
         params {:table :user
-                :cols [:id :group-id :time-zone-id]
+                :cols [:id :account-id :time-zone-id]
                 :where-clause where-clause}
         result (sql env :get-cols-from-table params)]
     (first result)))
@@ -375,33 +373,33 @@
      (validate-update env subscription-user record mods modded-record))))
 
 
-;;SUPERGROUP-ADMIN
-(defmethod bv/validate ["supergroup-admin" :create :subscription]
+;;MASTER-ACCOUNT-ADMIN
+(defmethod bv/validate ["master-account-admin" :create :subscription]
   [_ _ {:keys [user] :as env} record new-record modded-record]
   (let [subscription-user (get-subscription-user env new-record)]
     (Rules
-     (validate-supergroup-admin-access user subscription-user)
+     (validate-master-account-admin-access user subscription-user)
      (validate-new env subscription-user new-record))))
 
-(defmethod bv/validate ["supergroup-admin" :update :subscription]
+(defmethod bv/validate ["master-account-admin" :update :subscription]
   [_ _ {:keys [user] :as env} record mods modded-record]
   (let [subscription-user (get-subscription-user env modded-record)]
     (Rules
-     (validate-supergroup-admin-access user subscription-user)
+     (validate-master-account-admin-access user subscription-user)
      (validate-update env subscription-user record mods modded-record))))
 
 
-;;GROUP-ADMIN
-(defmethod bv/validate ["group-admin" :create :subscription]
+;;ACCOUNT-ADMIN
+(defmethod bv/validate ["account-admin" :create :subscription]
   [_ _{:keys [user] :as env} record new-record modded-record]
   (let [subscription-user (get-subscription-user env new-record)]
     (Rules
-     (validate-group-admin-access user subscription-user)
+     (validate-account-admin-access user subscription-user)
      (validate-new env subscription-user new-record))))
 
-(defmethod bv/validate ["group-admin" :update :subscription]
+(defmethod bv/validate ["account-admin" :update :subscription]
   [_ _ {:keys [user] :as env} record mods modded-record]
   (let [subscription-user (get-subscription-user env modded-record)]
     (Rules
-     (validate-group-admin-access user subscription-user)
+     (validate-account-admin-access user subscription-user)
      (validate-update env subscription-user record mods modded-record))))

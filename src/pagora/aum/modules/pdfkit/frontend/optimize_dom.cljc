@@ -1,4 +1,4 @@
-(ns pagora.aum.modules.pdfkit.frontend..optimize-dom
+(ns pagora.aum.modules.pdfkit.frontend.optimize-dom
   (:require
    [clojure.set :as set]
    ))

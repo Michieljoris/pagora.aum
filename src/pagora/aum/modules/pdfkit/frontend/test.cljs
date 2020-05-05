@@ -1,7 +1,7 @@
 (ns pagora.aum.modules.pdfkit.frontend.test
   (:require
    [pagora.aum.modules.pdfkit.frontend.core :as core]
-   [redlobster.stream :as stream]
+   ;; [redlobster.stream :as stream]
    [pagora.aum.modules.pdfkit.frontend.optimize-dom :as optimize-dom]
    [clojure.string :as string]
    cljs.nodejs
@@ -18,7 +18,8 @@
 ;;needed for testing
 (defn test-pdf [form]
   (let [doc (core/pdf form)]
-    (.pipe doc (stream/write-file "test.pdf"))
+    ;;TODO-aum
+    ;; (.pipe doc (stream/write-file "test.pdf"))
     (.end doc)))
 
 #_(defn write-doc [doc]

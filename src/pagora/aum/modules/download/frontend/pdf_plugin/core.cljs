@@ -1,10 +1,8 @@
-(ns )
-
 (ns pagora.aum.modules.download.frontend.pdf-plugin.core
   (:require
    [pagora.aum.modules.download.frontend.data :refer [make-data make-url]]
    [cuerdas.core :as str]
-   [bilby.frontend.pdfkit.core :as pdfkit]))
+   [pagora.aum.modules.pdfkit.frontend.core :as pdfkit]))
 
 ;;To use this download plugin move pdfkit.ext.js from js-scripts/pdfkit to a
 ;;root src cljs path such as src/cljs and add this line to src/cljs/deps.cljs

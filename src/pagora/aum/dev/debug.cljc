@@ -2,7 +2,7 @@
   (:require
    [taoensso.timbre :as timbre]
    [cuerdas.core :as str]
-   [pagora.aum.security :as security]
+   ;; [pagora.aum.security :as security]
    #?@(:clj  [[taoensso.tufte :as tufte :refer (defnp p profiled profile)]]
        :cljs [[taoensso.tufte :as tufte :refer-macros (defnp p profiled profile)]])
    [clojure.pprint :refer [pprint]]
@@ -64,17 +64,17 @@
     dt
     ))
 
-(defn print-permissions [env method table user]
-  (print "Permissions to" method table "for user" user "are:\n")
-  (pprint (env security/get-permissions method table user)))
+;; (defn print-permissions [env method table user]
+;;   (print "Permissions to" method table "for user" user "are:\n")
+;;   (pprint (env security/get-permissions method table user)))
 
-(defn print-validation-fn
-  ([env method table user] (print-validation-fn env method table user nil))
-  ([env method table user some-validation-fn]
-   (let [validation-fn (security/get-validation-fun (assoc env :user user) table method)]
-     (print "Validation fn for" method table "for user" user "is:\n")
-     (pprint validation-fn)
-     (when some-validation-fn
-       (if (= some-validation-fn validation-fn)
-         (print "The same as passed in validation-fn!!!")
-         (print "OH NO!!!!! Not the same validation fn"))))))
+;; (defn print-validation-fn
+;;   ([env method table user] (print-validation-fn env method table user nil))
+;;   ([env method table user some-validation-fn]
+;;    (let [validation-fn (security/get-validation-fun (assoc env :user user) table method)]
+;;      (print "Validation fn for" method table "for user" user "is:\n")
+;;      (pprint validation-fn)
+;;      (when some-validation-fn
+;;        (if (= some-validation-fn validation-fn)
+;;          (print "The same as passed in validation-fn!!!")
+;;          (print "OH NO!!!!! Not the same validation fn"))))))
