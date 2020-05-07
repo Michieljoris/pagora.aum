@@ -67,7 +67,6 @@
 
    :db-name  "foo"
    :db-user "root"
-   :db-password ""
    :db-options "&serverTimezone=UTC&zeroDateTimeBehavior=convertToNull&useSSL=false&characterEncoding=UTF-8"
    :db-password "irma"
    :db-url "//localhost:3306/"

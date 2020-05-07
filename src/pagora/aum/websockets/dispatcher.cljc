@@ -67,7 +67,7 @@
 
       ;; Parser might set status to something other than :ok
       (reset! (:state parser-env) {:status :ok})
-      (let [user   {:id 1 :name "admin"}  ;; (get-user-by-ev-msg parser-env ev-msg)
+      (let [user   {:id 1 :name "admin"}  ;; (get-user-by-ev-msg parser-env ev-msg) ;;TODO-aum-sec
             ;;NOTE: always vet carefully what gets used in options!!!
             ;;This is a security leak otherwise!!!!!
             options (select-keys options [:normalize?])
@@ -75,9 +75,12 @@
             parser-config (cond-> {}
                             (boolean? normalize?) (assoc :normalize normalize?))
             response {:value (if user
-                               (let [user (security/process-user parser-env user)
+                               (let [role (security/get-user-role parser-env user)
                                      user (select-keys user
-                                                       (security/get-whitelist parser-env :read :user user))
+                                                       (security/get-whitelist parser-env :read :user (assoc user :role role)))
+                                     user (assoc user :role role)
+                                     _ (timbre/info :#pp {:in-dispatcher user})
+
                                      {:keys [chsk-send!]} websocket]
                                  (parser {:user user
                                           :parser-config parser-config
@@ -158,10 +161,10 @@
   (when (not (:disable-login? config))
     (timbre/info "Login:" (assoc ?data :password "***"))
     (let [user (security/login parser-env ?data)
-          user (security/process-user parser-env user)
+          role (security/get-user-role parser-env user)
           response {:authenticated (boolean (:remember-token user))
                     :remember-token (:remember-token user)
-                    :user-role (:role user)}]
+                    :user-role role}]
       (when ?reply-fn
         ;; (timbre/info response)
         (?reply-fn response)))))
@@ -178,8 +181,6 @@
   [{:keys [?reply-fn id] :as ev-msg} {:keys [config parser-env]}]
   (let [user nil ;; (get-user-by-ev-msg parser-env ev-msg)
         ]
-    (timbre/info :#pp {:frontend-config (:frontend-config config)})
-
     (when ?reply-fn
       (?reply-fn (:frontend-config config)))))
 

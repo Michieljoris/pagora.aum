@@ -1,4 +1,5 @@
 (ns pagora.aum.modules.auth.db-config.subscription
+  #?(:cljs (:require-macros [pagora.aum.database.validate.Rule :refer [rule]]))
   (:require
    [pagora.aum.database.validate.core :as bv :refer [Rules]]
    [pagora.aum.database.query :refer [sql]]
@@ -8,14 +9,31 @@
                                                    validate-account-admin-access
                                                    account-id-has-to-be-valid]]
    [pagora.aum.modules.auth.subscriptions.core :as subs]
-   [pagora.aum.modules.auth.subscriptions.time :as time]
-   [clj-time.core :as t]
-   [clj-time.format :as f]
-   [clj-time.coerce :as c]
-   [pagora.aum.database.validate.Rule :refer [rule]]
+   #?(:clj
+      [pagora.aum.modules.auth.subscriptions.time :as time])
+   ;; [clj-time.core :as t]
+   ;; [clj-time.format :as f]
+   ;; [clj-time.coerce :as c]
+   #?(:clj [pagora.aum.database.validate.Rule :refer [rule]])
    [pagora.aum.database.validate.rules :as rule]
    [taoensso.timbre :as timbre :refer [error info]]
-))
+   ))
+
+;;TODO-aum:
+(def sql-date-to-local-date #?(:clj sql-date-to-local-date
+                               :cljs nil))
+(def today-in-tz #?(:clj today-in-tz
+                    :cljs nil))
+(def equal-or-after? #?(:clj equal-or-after?
+                        :cljs nil))
+(def equal-or-before? #?(:clj equal-or-before?
+                        :cljs nil))
+(def before? #?(:clj before?
+                :cljs nil))
+(def after? #?(:clj after?
+                :cljs nil))
+(def equal? #?(:clj equal?
+                :cljs nil))
 
 ;;Goal is to have an easy way to authorize users based on a subscription, and to
 ;;have a straightforward way to calculate active users over a period for billing
@@ -144,7 +162,7 @@
   {:root true
    :schema schema
    :columns (keys schema)
-   :read {:role {"super-admin" {:blacklist []
+   :read {:role {"master-admin" {:blacklist []
                                 :scope not-deleted-scope}
                  "master-account-admin" {:blacklist []
                                      :scope [:and [not-deleted-scope
@@ -152,7 +170,7 @@
                  "account-admin" {:blacklist []
                                 :scope [:and [not-deleted-scope
                                               account-admin-scope]]}}}
-   :create {:role {"super-admin" {:blacklist [:updated-at :created-at :deleted]}
+   :create {:role {"master-admin" {:blacklist [:updated-at :created-at :deleted]}
                    "master-account-admin" {:blacklist [:updated-at :created-at :deleted]}
                    "account-admin" {:blacklist [:updated-at :created-at :deleted]}}}
    :update {:role {"super-admin" {:whitelist [:deleted :entry-at :expired-at :invalidated]
@@ -182,9 +200,9 @@
                          :as subscription-user}
                     {:keys [entry-at expired-at invalidated deleted] :as new-subscription}]
 
-  (let [today-in-tz (time/today-in-tz time-zone-id)
-        entry-at (time/sql-date-to-local-date entry-at)
-        expired-at (time/sql-date-to-local-date expired-at)]
+  (let [today-in-tz (today-in-tz time-zone-id)
+        entry-at (sql-date-to-local-date entry-at)
+        expired-at (sql-date-to-local-date expired-at)]
 
     (Rules
 
@@ -223,12 +241,12 @@
          :new-subscription new-subscription}))
 
      (rule (or (nil? expired-at)
-               (not (t/before? expired-at entry-at)))
+               (not (before? expired-at entry-at)))
            "expired-at should be equal or after entry-at"
            ;;(unless we want people to be billed for when they where NOT subscribed :->)
            {:entry-at entry-at :today-in-tz today-in-tz})
 
-     (rule (not (t/before? entry-at today-in-tz))
+     (rule (not (before? entry-at today-in-tz))
            "Not allowed to set entry-at in the past"
            ;;(unless we want people to be billed for when they where NOT subscribed :->)
            {:entry-at entry-at :today-in-tz today-in-tz}))))
@@ -244,17 +262,17 @@
   ;;                    :mods mods
   ;;                    :modded-sub modded-subscription})
 
-  (let [today-in-tz (time/today-in-tz time-zone-id)
+  (let [today-in-tz (today-in-tz time-zone-id)
         {:keys [entry-at expired-at invalidated]} subscription
-        entry-at (time/sql-date-to-local-date entry-at)
-        expired-at (time/sql-date-to-local-date expired-at)
+        entry-at (sql-date-to-local-date entry-at)
+        expired-at (sql-date-to-local-date expired-at)
         invalidated (boolean invalidated)
 
         {updated-entry-at :entry-at
          updated-expired-at :expired-at
          updated-invalidated :invalidated} modded-subscription
-        updated-entry-at (time/sql-date-to-local-date updated-entry-at)
-        updated-expired-at (time/sql-date-to-local-date updated-expired-at)
+        updated-entry-at (sql-date-to-local-date updated-entry-at)
+        updated-expired-at (sql-date-to-local-date updated-expired-at)
         updated-invalidated (boolean updated-invalidated)]
 
     (Rules
@@ -291,13 +309,13 @@
 
      (rule
       (or (nil? expired-at)
-          (time/equal-or-after? expired-at today-in-tz))
+          (equal-or-after? expired-at today-in-tz))
       "You can't update a subscription that is expired"
       {:subscription subscription})
 
      ;;One of the following two sets of rules will logically apply:
      ;;1.Subscription is current
-     (when (time/equal-or-before? entry-at today-in-tz)
+     (when (equal-or-before? entry-at today-in-tz)
 
        ;;Check the four updateable props: entry-at, expired-at, deleted and invalidated
        (Rules
@@ -312,7 +330,7 @@
         (when (and (contains? mods :expired-at)
                    (some? updated-expired-at))
           (Rules
-           (rule (time/equal-or-after? updated-expired-at today-in-tz) ;;so also >= entry-at!!
+           (rule (equal-or-after? updated-expired-at today-in-tz) ;;so also >= entry-at!!
                  "expired-at should be set equal to or to a date after today!!"
                  {:subscription subscription :mods mods})
 
@@ -322,24 +340,24 @@
              ;;be paying for an invalidated subscription. Undoing an
              ;;invalidation also only makes sense to do when subscription
              ;;expires today.
-             (rule (t/equal? updated-expired-at today-in-tz)
+             (rule (equal? updated-expired-at today-in-tz)
                    "When invalidated is modified expired-at should be set to today!!"
                    {:subscription subscription
                     :mods mods}))))))
 
      ;;2. Subscription is scheduled for in the future
-     (when (t/after? entry-at today-in-tz)
+     (when (after? entry-at today-in-tz)
 
        ;;Check the four updateable props: entry-at, expired-at, deleted and invalidated
        (Rules
         (when (contains? mods :entry-at)
           (Rules
-           (rule (time/equal-or-after? updated-entry-at today-in-tz)
+           (rule (equal-or-after? updated-entry-at today-in-tz)
                  "You can not set entry at to a date in the past"
                  {:subscription subscription :mods mods})
 
            (when (some? updated-expired-at)
-             (rule (time/equal-or-before? updated-entry-at updated-expired-at)
+             (rule (equal-or-before? updated-entry-at updated-expired-at)
                    "You can not set entry-at to a date after expired-at"
                    {:subscription subscription :mods mods}))))
 
@@ -349,7 +367,7 @@
 
         (when (and (contains? mods :expired-at)
                    (some? updated-expired-at))
-          (rule (time/equal-or-after? updated-expired-at updated-entry-at)
+          (rule (equal-or-after? updated-expired-at updated-entry-at)
                 "You can not set expired-at to a date before entry-at"
                 {:subscription subscription :mods mods})))
 
@@ -357,7 +375,7 @@
        ))))
 
 ;;SUPER-ADMIN
-(defmethod bv/validate ["super-admin" :create :subscription]
+(defmethod bv/validate ["master-admin" :create :subscription]
   [_ _ env record new-record modded-record]
   (let [subscription-user (get-subscription-user env new-record)]
     (Rules
@@ -366,7 +384,7 @@
            {:new-subscription new-record})
      (validate-new env subscription-user new-record))))
 
-(defmethod bv/validate ["super-admin" :update :subscription]
+(defmethod bv/validate ["master-admin" :update :subscription]
   [_ _ env record mods modded-record]
   (let [subscription-user (get-subscription-user env modded-record)]
     (Rules

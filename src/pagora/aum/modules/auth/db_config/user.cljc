@@ -69,7 +69,7 @@
                              :type :has-many :foreign-key :entity-id}}
 
              ;; :updated-by {:alias-for-table :user :type :belongs-to  :foreign-key :updated-by-id}
-             :read {:role {"master--admin" {:blacklist [:encrypted-password :confirmation-token]}
+             :read {:role {"master-admin" {:blacklist [:encrypted-password :confirmation-token]}
                            "master-account-admin" {:blacklist [:encrypted-password :confirmation-token]
                                                :scope [:and [master-account-admin-scope]]}
                            "account-admin" {:blacklist [:encrypted-password :confirmation-token]
@@ -79,7 +79,7 @@
                     ;; :blacklist [:encrypted-password]
                     ;; :scope [:id := :u/id] ;by default user can only get its own data
                     }
-             :create {:role {"master--admin" {:whitelist [:name :email :phone :function :locale :gender :account-id :company-id
+             :create {:role {"master-admin" {:whitelist [:name :email :phone :function :locale :gender :account-id :company-id
                                                         :inactive :deleted :tent-subject-id  :password-expires-at
                                                         :remember-token]}
                              "master-account-admin" {:whitelist [:name :email :phone :locale :function :gender :account-id :company-id
@@ -88,7 +88,7 @@
                              "account-admin" {:whitelist [:name :email :phone :locale :function :gender :account-id :company-id
                                                         :inactive :deleted :tent-subject-id  :password-expires-at
                                                         :remember-token]}}}
-             :update {:role {"master--admin" {:whitelist [:name :email :phone :function :locale :gender :inactive :deleted
+             :update {:role {"master-admin" {:whitelist [:name :email :phone :function :locale :gender :inactive :deleted
                                                         :tent-subject-id :password-expires-at]}
                              "master-account-admin" {:whitelist [:name :email :function :phone :locale :gender :inactive :deleted
                                                              :tent-subject-id :password-expires-at]
@@ -140,7 +140,7 @@
 ;;   )
 
 ;;Master--admin ==================================================
-(defmethod bv/validate ["master--admin" :create :user]
+(defmethod bv/validate ["master-admin" :create :user]
   [_ _ env _ new-record _]
   (Rules
    (account-id-has-to-be-valid env new-record)
@@ -150,7 +150,7 @@
    ;; (validate-phone new-record)
    ))
 
-(defmethod bv/validate ["master--admin" :update :user]
+(defmethod bv/validate ["master-admin" :update :user]
   [_ _ env record mods modded-record]
   (Rules
    (validate-user-required-keys modded-record)
@@ -158,14 +158,14 @@
    ;; (validate-phone new-record)
    ))
 
-(defmethod bv/validate ["master--admin" :bulk-update :user]
+(defmethod bv/validate ["master-admin" :bulk-update :user]
   [_ _ env record mods modded-record]
   (Rules
    (rule  (= (keys mods) [:password-expires-at])
           "Only allowed to bulk update password-expires-at"
           {:mods mods})))
 
-;; (defmethod bv/validate ["master--admin" :delete :user]
+;; (defmethod bv/validate ["master-admin" :delete :user]
 ;;   [_ _ env record mods modded-record]
 ;;   (validate-delete-user env (:id record)))
 

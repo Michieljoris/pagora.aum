@@ -3,13 +3,19 @@
    [taoensso.timbre :as timbre :refer [error info warn]]
    [pagora.aum.database.query :refer [sql]]
    [pagora.aum.database.clauses :as db-clauses]
-   [clj-time.core :as t]
-   [clj-time.local :as l]
-   [clj-time.format :as f]
-   [clj-time.coerce :as c]
-   [pagora.aum.modules.auth.subscriptions.time :as time]
+   ;; [clj-time.core :as t]
+   ;; [clj-time.local :as l]
+   ;; [clj-time.format :as f]
+   ;; [clj-time.coerce :as c]
+   #?(:clj
+      [pagora.aum.modules.auth.subscriptions.time :as time])
    ))
 
+;;TODO-aum: find a solution so that subscriptions can run in frontend full stack mock mode
+(def sql-date-to-local-date #?(:clj time/sql-date-to-local-date
+                               :cljs nil))
+(def today-in-tz #?(:clj time/today-in-tz
+                    :cljs nil))
 
 ;;starter-app
 
@@ -111,7 +117,7 @@
   (let [enabled (not deleted)
         ;;NOTE: There's an edge case where today might be different once validation happens. Maybe
         ;;pass today into the validation?
-        today (.toString (time/today-in-tz time-zone-id))
+        today (.toString (today-in-tz time-zone-id))
         subscription (get-valid-subscription env {:user-id(:id user)
                                                   :date today})]
     (timbre/info :#pp {:sub subscription})
@@ -134,7 +140,7 @@
            (or
             (not (:invalidated subscription))
             (nil? (:expired-at subscription))
-            (not (= today (.toString (time/sql-date-to-local-date (:expired-at subscription)))))))
+            (not (= today (.toString (sql-date-to-local-date (:expired-at subscription)))))))
       (sql env :update-record {:table :subscription
                                :id (:id subscription)
                                :current-record subscription

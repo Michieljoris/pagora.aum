@@ -20,16 +20,15 @@
 
 ;; (ns-unmap *ns* 'process-user)
 
-(defmulti process-user
-  "foo"
+(defmulti get-user-role
   (fn [env user]
-
-      (timbre/info :#pp {:again :there!!!})
+    (timbre/info :#pp {:process :user :to :do})
     (:id user)))
 
-(defmethod process-user :default
+(defmethod get-user-role :default
+  ;;TODO-aum-sec
   [env user]
-  (assoc user :role "no-role"))
+  "master-admin")
 
 #?(:clj
    (defn make-uuid
@@ -112,6 +111,11 @@
     (merge {:scope (:scope override)} ;scope are conditions that should get added to where clauses
            (let [all-columns (db-inspect/list-columns env table)
                  whitelist (override-whitelist all-columns override)]
+             (timbre/info :#pp {:table table
+                                :user user
+                                :override override
+                                })
+
              {:whitelist whitelist
               :blacklist (vec (set/difference (set all-columns) (set whitelist)))}))))
 
