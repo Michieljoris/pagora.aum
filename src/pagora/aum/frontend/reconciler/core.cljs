@@ -351,7 +351,8 @@
                 :send-blocker (chan)}
         remote-keywords (keys remotes)
         reconciler-config (merge {:pathopt true
-                                  :merge-tree cu/deep-merge-concat-vectors
+                                  :merge-tree cu/deep-merge-maps
+                                  ;; cu/deep-merge-concat-vectors
                                   ;; om-deep-merge
                                   :merge-ident cu/deep-merge-maps
                                   :migrate (fn [app-state _ _] app-state);;see above

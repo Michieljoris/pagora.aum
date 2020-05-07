@@ -10,13 +10,15 @@
   (:refer-clojure :exclude [read])
   (:require [pagora.aum.frontend.parser.denormalize :as denorm]
             [pagora.aum.frontend.parser.denormalize-hooks :refer [db->tree-hooks]]
+            [pagora.aum.om.next.impl.parser :as om-parser]
 
             [pagora.aum.dev.debug :as d :refer [mark-point now-in-ms warn-when]]
             [pagora.aum.om.util :as om-util]
             #?@(:clj  [ ;; [transcriptor :as check]
                        [taoensso.tufte :as tufte :refer (defnp p profiled profile)]]
                 :cljs [[taoensso.tufte :as tufte :refer-macros (defnp p profiled profile)]])
-            [taoensso.timbre :as timbre]))
+            [taoensso.timbre :as timbre]
+            [pagora.aum.om.next :as om]))
 
 (def om-query-keys (atom (make-hierarchy)))
 
@@ -81,11 +83,14 @@
 (defn aum-read
   "Resolves key against app-data using db->tree for all targets"
   [{:keys [target query state ast default-remote query-root dispatch-key db->tree] :as  env} key params]
-  ;; (timbre/info :#p "++++++++++++++++++++++++++++++++++++++++")
-  ;; (timbre/info :#cp {:key key :query query :query-root query-root :ast ast})
+  ;; (when (some? target)
+  ;;   (timbre/info :#g "++++++++++++++++++++++++++++++++++++++++")
+  ;;   ;; (timbre/info :#cp {:key key :query query :query-root query-root :ast ast})
+  ;;   (timbre/info :#cp {:target target :key key :query query ;; :query-root query-root :ast ast
+  ;;                      }))
+
   (let [s (now-in-ms)
         target (or target :value)
-        _ (when (or true (= key :route/companies)) (timbre/debug :#p "read*" target key))
         app-data @state
         env (assoc env :target target)
         env (dissoc env :parser)
@@ -131,7 +136,7 @@
                                    (let [{:keys [type]} ast]
                                      (case type
                                        :prop ast
-                                       :join (assoc ast :query (om-util/join-value (first sparse-query))))))]
+                                       :join (om-parser/join->ast  (first sparse-query)))))]
 
                   (timbre/debug :#p "Result for read*" key "for" target)
                   (timbre/debug "Sparse query " key)

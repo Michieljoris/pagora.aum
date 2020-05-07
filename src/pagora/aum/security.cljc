@@ -111,10 +111,10 @@
     (merge {:scope (:scope override)} ;scope are conditions that should get added to where clauses
            (let [all-columns (db-inspect/list-columns env table)
                  whitelist (override-whitelist all-columns override)]
-             (timbre/info :#pp {:table table
-                                :user user
-                                :override override
-                                })
+             ;; (timbre/info :#pp {:table table
+             ;;                    :user user
+             ;;                    :override override
+             ;;                    })
 
              {:whitelist whitelist
               :blacklist (vec (set/difference (set all-columns) (set whitelist)))}))))

@@ -3,7 +3,6 @@
    [pagora.aum.environment :refer [environment]]
    [taoensso.timbre :as timbre]))
 
-
 (def default-config
   {:env environment
    :clj-env environment
