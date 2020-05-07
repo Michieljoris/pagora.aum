@@ -2843,4 +2843,3 @@
 ;; (meta (force {:a [:b]} :foo))
 
 ;; (meta ^{:foo :bar}{:a [:b]})
-

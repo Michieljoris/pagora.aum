@@ -20,32 +20,41 @@
 
 ;; (dev/get-all-columns-of-table "users")
 
-(def schema {:account-id            :int
-             :encrypted-password  :text
-             :id                  :int
-             :gender              :text
-             :email               :text
-             :name                :text
-             :locale              :text
-             :function            :text
-             :updated-at          :date-time
-             :confirmation-token  :text
-             :remember-token      :text
-             :password-expires-at :date-time
-             :phone               :text
-             :account-admin         {:type :boolean} ;;tinyint(1)
-             :deleted             {:type :boolean}
-             :effacts-synced      {:type :boolean}
-             :guest               {:type :boolean}
-             :inactive            {:type :boolean}
-             :created-at          :date-time
-             :tent-subject-id     :int
-             :effacts-subject-id  :int
-             :company-id          :int
-             :time-zone-id :text
-             ;; :last-updated-user-id :int
-             ;; :created-user-id :int
-             })
+;; (def schema {:account-id            :int
+;;              :encrypted-password  :text
+;;              :id                  :int
+;;              :gender              :text
+;;              :email               :text
+;;              :name                :text
+;;              :locale              :text
+;;              :function            :text
+;;              :updated-at          :date-time
+;;              :confirmation-token  :text
+;;              :remember-token      :text
+;;              :password-expires-at :date-time
+;;              :phone               :text
+;;              :account-admin         {:type :boolean} ;;tinyint(1)
+;;              :deleted             {:type :boolean}
+;;              :effacts-synced      {:type :boolean}
+;;              :guest               {:type :boolean}
+;;              :inactive            {:type :boolean}
+;;              :created-at          :date-time
+;;              :tent-subject-id     :int
+;;              :effacts-subject-id  :int
+;;              :company-id          :int
+;;              :time-zone-id :text
+;;              ;; :last-updated-user-id :int
+;;              ;; :created-user-id :int
+;;              })
+
+(def schema {:id :int
+             :name :text
+             :email :text
+             :active {:type :boolean}
+             :locale :text
+             :remember-token :text
+             :confirmation-token :text
+             :encrypted-password :text})
 
 (def config {:root true
              :schema schema

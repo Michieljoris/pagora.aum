@@ -1,4 +1,4 @@
-(ns pagora.aum.modules.auth.subscriptions.db-config
+(ns pagora.aum.modules.auth.db-config.subscription
   (:require
    [pagora.aum.database.validate.core :as bv :refer [Rules]]
    [pagora.aum.database.query :refer [sql]]

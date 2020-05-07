@@ -59,22 +59,28 @@
      (map #(first (get-primary-keys-of-table dbm schema-name %)) (map :table_name tables))))
 
 #?(:clj
-   (defn get-schema
-     "Get a schema from a database."
-     ([db-conn] (get-schema db-conn "public"))
-     ([db-conn schema-name]
-      ;; There's a few more ways to get at schema data, like SHOW TABLES and
-      ;; DESCRIBE TABLE, and from the INFORMATION_SCHEMA database: the TABLES and
-      ;; COLUMNS tables, they need multiple requests. The metadata comes with the
-      ;; connection. Might be a slight performance benifit when testing, since we
-      ;; build specific databases with different schemas for the tests. Much of a
-      ;; muchness though.
-      (with-open [conn (jdbc/get-connection db-conn)]
-        (let [dbm (.getMetaData conn)
-              tables (get-tables dbm schema-name)]
-          (denormalized-schema {:tables       tables
-                                :columns      (get-columns dbm schema-name)
-                                :primary-keys (get-primary-keys dbm schema-name tables)})))))
+   (defn get-schema [db-conn]
+     (->> (jdbc/query db-conn "SHOW TABLES;")
+          (map (fn [m] (let [[[_ t]] (seq m)] t)))
+          (mapv (fn [t]
+                  [t (jdbc/query db-conn (str "DESCRIBE " t))]))
+          (into {})))
+   ;; (defn get-schema
+   ;;   "Get a schema from a database."
+   ;;   ([db-conn] (get-schema db-conn "public"))
+   ;;   ([db-conn schema-name]
+   ;;    ;; There's a few more ways to get at schema data, like SHOW TABLES and
+   ;;    ;; DESCRIBE TABLE, and from the INFORMATION_SCHEMA database: the TABLES and
+   ;;    ;; COLUMNS tables, they need multiple requests. The metadata comes with the
+   ;;    ;; connection. Might be a slight performance benifit when testing, since we
+   ;;    ;; build specific databases with different schemas for the tests. Much of a
+   ;;    ;; muchness though.
+   ;;    (with-open [conn (jdbc/get-connection db-conn)]
+   ;;      (let [dbm (.getMetaData conn)
+   ;;            tables (get-tables dbm schema-name)]
+   ;;        (denormalized-schema {:tables       tables
+   ;;                              :columns      (get-columns dbm schema-name)
+   ;;                              :primary-keys (get-primary-keys dbm schema-name tables)})))))
    :cljs
    (defn get-schema
      ([db-conn] (get-schema db-conn nil))
@@ -145,13 +151,21 @@
   (defn underscored-string->hyphened-kw [s]
     ((comp keyword cu/underscore->hyphen) s))
 
-  (defn make-condensed-schema [schema]
+    (defn make-condensed-schema [schema]
     (into {}
-          (map (fn [[_ {:keys [:table_name :columns :primary-key]}]]
-                 [table_name {:primary-key (underscored-string->hyphened-kw (:column_name primary-key))
-                              :columns (mapv underscored-string->hyphened-kw (keys columns))
-                              }])
+          (map (fn [[t columns]]
+                 [t {;; :primary-key (underscored-string->hyphened-kw (:column_name primary-key))
+                     :columns  (mapv #(-> % :field underscored-string->hyphened-kw) columns)
+                     }])
                schema)))
+
+  ;; (defn make-condensed-schema [schema]
+  ;;   (into {}
+  ;;         (map (fn [[_ {:keys [:table_name :columns :primary-key]}]]
+  ;;                [table_name {:primary-key (underscored-string->hyphened-kw (:column_name primary-key))
+  ;;                             :columns (mapv underscored-string->hyphened-kw (keys columns))
+  ;;                             }])
+  ;;              schema)))
 
   ;; (make-condensed-schema schema)
   )

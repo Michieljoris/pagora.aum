@@ -10,174 +10,175 @@
    [taoensso.timbre :as timbre :refer [error info]]
 ))
 
-;;(dev/get-all-columns-of-table "groups")
+;;(dev/get-all-columns-of-table "accounts")
 
-(def supergroup-admin-scope
-  [:or [[:id := :u/group-id]
-        [:group-id := :u/group-id]]])
+(def master-account-admin-scope
+  [:or [[:id := :u/account-id]
+        [:account-id := :u/account-id]]])
 
-(def group-admin-scope
-  [:id := :u/group-id])
+(def account-admin-scope
+  [:id := :u/account-id])
 
 (def config
   {:root true
-   :columns [:user-id :password-validity-period-active :group-id :id :password-validity-period-days :name
-             :supergroup :updated-at :effacts-synced :sharing-enabled :pdf-options :has-dossiers :created-at
-             :effacts-subject-id :password-validity-period-retention
-             :app-logo-file-name :app-logo-content-type :app-logo-file-size :app-logo-updated-at
-             :app-brand-file-name :app-brand-content-type :app-brand-file-size :app-brand-updated-at
-             :app-brand-text
-             :pdf-logo-file-name :pdf-logo-content-type :pdf-logo-file-size :pdf-logo-updated-at
-             :show-logo-on-pdf
-             :account-cost-yearly :account-cost-monthly :extra-account-cost
-             :password-complexity-requirements-active]
-   :joins {:dossier :has-many
-           :group :belongs-to
-           :event {:alias-for-table :event-store
-                   :type :has-many :foreign-key :entity-id}
-           :subgroup {:alias-for-table :group :type :has-many :foreign-key :group-id}}
-   :read {:role {"super-admin" {:blacklist []}
-                 "supergroup-admin" {:blacklist []
-                                     :scope supergroup-admin-scope}
-                 "group-admin" {:blacklist [:supergroup]
-                                :scope [:id := :u/group-id]}}}
-   :create {:role {"super-admin" {:blacklist [:id :updated-at :created-at]}
-                   "supergroup-admin" {:blacklist [:id :updated-at :created-at :supergroup
-                                                   :account-cost-monthly :account-cost-yearly :extra-account-cost
-                                                   :effacts-synced :effacts-subject-id]}}}
-   :update {:role {"super-admin" {:blacklist [:id :updated-at :created-at]}
-                   "supergroup-admin" {:blacklist [:id :updated-at :created-at :supergroup :group-id
+   :columns [:id :name :email :account-id]
+   ;; :columns [:user-id :password-validity-period-active :account-id :id :password-validity-period-days :name
+   ;;           :master-account :updated-at :effacts-synced :sharing-enabled :pdf-options :has-dossiers :created-at
+   ;;           :effacts-subject-id :password-validity-period-retention
+   ;;           :app-logo-file-name :app-logo-content-type :app-logo-file-size :app-logo-updated-at
+   ;;           :app-brand-file-name :app-brand-content-type :app-brand-file-size :app-brand-updated-at
+   ;;           :app-brand-text
+   ;;           :pdf-logo-file-name :pdf-logo-content-type :pdf-logo-file-size :pdf-logo-updated-at
+   ;;           :show-logo-on-pdf
+   ;;           :account-cost-yearly :account-cost-monthly :extra-account-cost
+   ;;           :password-complexity-requirements-active]
+   ;; :joins {:dossier :has-many
+   ;;         :account :belongs-to
+   ;;         :event {:alias-for-table :event-store
+   ;;                 :type :has-many :foreign-key :entity-id}
+   ;;         :subaccount {:alias-for-table :account :type :has-many :foreign-key :account-id}}
+   :read {:role {"master-admin" {:blacklist []}
+                 "master-account-admin" {:blacklist []
+                                         :scope master-account-admin-scope}
+                 "account-admin" {:blacklist [:master-account]
+                                  :scope [:id := :u/account-id]}}}
+   :create {:role {"master-admin" {:blacklist [:id :updated-at :created-at]}
+                   "master-account-admin" {:blacklist [:id :updated-at :created-at :master-account
+                                                       :account-cost-monthly :account-cost-yearly :extra-account-cost
+                                                       :effacts-synced :effacts-subject-id]}}}
+   :update {:role {"master-admin" {:blacklist [:id :updated-at :created-at]}
+                   "master-account-admin" {:blacklist [:id :updated-at :created-at :master-account :account-id
                                                    :account-cost-monthly :account-cost-yearly :extra-account-cost
                                                    :effacts-synced :effacts-subject-id]
-                                       :scope supergroup-admin-scope}
-                   "group-admin" {:blacklist [:id :updated-at :created-at :group-id :supergroup
+                                       :scope master-account-admin-scope}
+                   "account-admin" {:blacklist [:id :updated-at :created-at :account-id :master-account
                                               :account-cost-monthly :account-cost-yearly :extra-account-cost
                                               :has-dossiers :effacts-synced :effacts-subject-id
                                               ;;Perhaps allow:
                                               :sharing-enabled :name
                                               :password-complexity-requirements-active]
-                                  :scope group-admin-scope}}}
-   :delete {:role {"super-admin" {}
-                   ;;can only delete its own subgroups
-                   "supergroup-admin" {:scope [:group-id := :u/group-id]}
+                                  :scope account-admin-scope}}}
+   :delete {:role {"master-admin" {}
+                   ;;can only delete its own subaccounts
+                   "master-account-admin" {:scope [:account-id := :u/account-id]}
                    }}
    })
 
-(defn validate-delete-group [env id]
+(defn validate-delete-account [env id]
   (Rules
-   (rule/validate-not-in-use env :group :group-id id)
-   (rule/validate-not-in-use env :user :group-id id)
-   ;; (rule/validate-not-in-use env :template :group-id id)
-   ;; (rule/validate-not-in-use env :category :group-id id)
-   (rule/validate-not-in-use env :dossier-type :group-id id)
+   (rule/validate-not-in-use env :account :account-id id)
+   (rule/validate-not-in-use env :user :account-id id)
+   ;; (rule/validate-not-in-use env :template :account-id id)
+   ;; (rule/validate-not-in-use env :category :account-id id)
+   (rule/validate-not-in-use env :dossier-type :account-id id)
 
    ;;These can only be created when above exists, but just checking to be sure
-   (rule/validate-not-in-use env :dossier :group-id id)
-   (rule/validate-not-in-use env :checklist :group-id id)
-   (rule/validate-not-in-use env :person :group-id id)
-   (rule/validate-not-in-use env :webhook :group-id id))
+   (rule/validate-not-in-use env :dossier :account-id id)
+   (rule/validate-not-in-use env :checklist :account-id id)
+   (rule/validate-not-in-use env :person :account-id id)
+   (rule/validate-not-in-use env :webhook :account-id id))
   )
 
-(defn validate-supergroup-admin-access [user record]
+(defn validate-master-account-admin-access [user record]
   (rule
-   (let [{:keys [group-id] :as user} (if (fn? user) (user) user)
+   (let [{:keys [account-id] :as user} (if (fn? user) (user) user)
          record (if (fn? record) (record) record)]
-     (or (= group-id (:id record))
-         (= group-id (:group-id record))))
-        "Can't access groups other than own group or subgroups"
-        (let [{:keys [group-id subgroup-ids] :as user} (if (fn? user) (user) user)]
+     (or (= account-id (:id record))
+         (= account-id (:account-id record))))
+        "Can't access accounts other than own account or subaccounts"
+        (let [{:keys [account-id subaccount-ids] :as user} (if (fn? user) (user) user)]
           {:record record
-           :user-group-id group-id
-           :user-subgroup-ids subgroup-ids})))
+           :user-account-id account-id
+           :user-subaccount-ids subaccount-ids})))
 
-(defn validate-group-admin-access [user record]
+(defn validate-account-admin-access [user record]
   (rule
    (let [user (if (fn? user) (user) user)
          record (if (fn? record) (record) record)]
-     (= (:group-id user) (:id record)))
-   "Can't access groups other than own group"
+     (= (:account-id user) (:id record)))
+   "Can't access accounts other than own account"
    {:record record
-    :user-group-id (:group-id user)}))
+    :user-account-id (:account-id user)}))
 
 (defn validate-unique-name [{:keys [user] :as env} old-name new-name]
-  ;;TODO: Remove if we really don't care if group name is not unique.
+  ;;TODO: Remove if we really don't care if account name is not unique.
   ;; (when (and new-name
   ;;            (or (nil? old-name)
   ;;                (not= old-name new-name)))
-  ;;   (let [group-with-same-name (first (sql env :get-cols-from-table {:table :group :cols [:name]
+  ;;   (let [account-with-same-name (first (sql env :get-cols-from-table {:table :account :cols [:name]
   ;;                                                                    :where-clause ["where `name` = ?" new-name]}))]
 
-  ;;     (rule (nil? group-with-same-name)
-  ;;           "Group name is not unique"
+  ;;     (rule (nil? account-with-same-name)
+  ;;           "Account name is not unique"
   ;;           {:name new-name
   ;;            :error {:type :validation
-  ;;                    :table :group
+  ;;                    :table :account
   ;;                    :column :name
   ;;                    :error :not-unique}})))
   )
 
-;;Super-admin ==================================================
-(defmethod bv/validate ["super-admin" :create :group]
-  [_ _ env _ _ {:keys [supergroup group-id name] :as new-record}]
+;;master-admin ==================================================
+(defmethod bv/validate ["master-admin" :create :account]
+  [_ _ env _ _ {:keys [master-account account-id name] :as new-record}]
   (Rules
-   (rule/require-keys new-record [:name] {:table :group})
+   (rule/require-keys new-record [:name] {:table :account})
    (validate-unique-name env nil name)
-   (rule (not (and supergroup group-id))
-         "A group cannot be both supergroup and subgroup"
-         {:group-id group-id
-          :supergroup supergroup})
+   (rule (not (and master-account account-id))
+         "A account cannot be both master-account and subaccount"
+         {:account-id account-id
+          :master-account master-account})
    ))
 
-(defmethod bv/validate ["super-admin" :update :group]
-  [_ _ env record mods {:keys [supergroup group-id] :as modded-record}]
+(defmethod bv/validate ["master-admin" :update :account]
+  [_ _ env record mods {:keys [master-account account-id] :as modded-record}]
   (Rules
-   (rule (not (and supergroup group-id))
-         "A group cannot be both supergroup and subgroup"
+   (rule (not (and master-account account-id))
+         "A account cannot be both master-account and subaccount"
          {:id (:id record)
-          :group-id group-id
-          :supergroup supergroup})
-   (rule/require-keys modded-record [:name] {:table :group})
+          :account-id account-id
+          :master-account master-account})
+   (rule/require-keys modded-record [:name] {:table :account})
    (validate-unique-name env (:name record) (:name mods))))
 
-(defmethod bv/validate ["super-admin" :delete :group]
+(defmethod bv/validate ["master-admin" :delete :account]
   [_ _ env record mods modded-record]
-  (validate-delete-group env (:id record)))
+  (validate-delete-account env (:id record)))
 
-;;Supergroup-admin ==================================================
-(defmethod bv/validate ["supergroup-admin" :create :group]
+;;Master-Account-admin ==================================================
+(defmethod bv/validate ["master-account-admin" :create :account]
   [_ _ {:keys [user] :as env} _ mods {:keys [id name] :as modded-record}]
   (Rules
-   (rule/require-keys modded-record [:name] {:table :group})
+   (rule/require-keys modded-record [:name] {:table :account})
    (validate-unique-name env nil name)
-   (rule (= (:group-id modded-record) (:group-id user))
-         "Group-id of new group has to be group-id of user"
-         {:user-group-id (:group-id user)
-          :group-id (:group-id modded-record)
+   (rule (= (:account-id modded-record) (:account-id user))
+         "Account-id of new account has to be account-id of user"
+         {:user-account-id (:account-id user)
+          :account-id (:account-id modded-record)
           :mods mods})
    ))
 
-(defmethod bv/validate ["supergroup-admin" :update :group]
+(defmethod bv/validate ["master-account-admin" :update :account]
   [_ _ {:keys [user] :as env} record mods {:keys [id name] :as modded-record}]
   (Rules
-   (validate-supergroup-admin-access user modded-record)
-   (rule/require-keys modded-record [:name] {:table :group})
+   (validate-master-account-admin-access user modded-record)
+   (rule/require-keys modded-record [:name] {:table :account})
    (validate-unique-name env (:name record) (:name mods))))
 
-(defmethod bv/validate ["supergroup-admin" :delete :group]
+(defmethod bv/validate ["master-account-admin" :delete :account]
   [_ _ env record mods modded-record]
-  (validate-delete-group env (:id record)))
+  (validate-delete-account env (:id record)))
 
-;; Group-admin ==================================================
-(defmethod bv/validate ["group-admin" :update :group]
+;; Account-admin ==================================================
+(defmethod bv/validate ["account-admin" :update :account]
   [_ _ {:keys [user] :as env} record mods modded-record]
   (Rules
    ;;scope already disallows this
-   (rule (= (:group-id user) (:id record))
-         "Not allowed to update an inaccessible group"
-         {:user-group-id (:group-id user)
-          :updated-group-id (:id record)
+   (rule (= (:account-id user) (:id record))
+         "Not allowed to update an inaccessible account"
+         {:user-account-id (:account-id user)
+          :updated-account-id (:id record)
           :mods mods})
-   (rule/require-keys modded-record [:name] {:table :group})
+   (rule/require-keys modded-record [:name] {:table :account})
    (validate-unique-name env (:name record) (:name mods))))
 
 
@@ -188,73 +189,73 @@
         "format should be original"
         {:format format :file-path file-path}))
 
-(defn validate-file-type-for-group [{:keys [file-path type]}]
+(defn validate-file-type-for-account [{:keys [file-path type]}]
   (rule (contains? #{:app-logo :app-brand :pdf-logo} type)
-        "Can only retrieve/upload app-logo, app-brand or pdf-logo for group"
+        "Can only retrieve/upload app-logo, app-brand or pdf-logo for account"
         {:type type
          :file-path file-path}))
 
-(defn validate-file-upload-for-group
+(defn validate-file-upload-for-account
   [env {:keys [file-path type id file-name] :as file-info}]
   (Rules
    (rule (and (number? (cu/parse-natural-number id))
               (not (empty? file-name)))
          "table id should be set properly and file-name should be set"
          {:id id :file-path file-path :file-name file-name})
-   (validate-file-type-for-group file-info)))
+   (validate-file-type-for-account file-info)))
 
-(defn validate-supergroup-access-for-file [{:keys [user] :as env} {:keys [file-path id] :as file-info}]
+(defn validate-master-account-access-for-file [{:keys [user] :as env} {:keys [file-path id] :as file-info}]
   (let [id (cu/parse-natural-number id)]
-    (rule (or (= (:group-id user) id)
-              (cu/includes? (:subgroup-ids user) id))
-          "group id or one of subgroup ids of user has to be same as id of the group associated with the file"
-          {:file-path file-path :id id :user-group-id (:group-id user)
-           :user-subgroup-ids (:subgroup-ids user)})))
+    (rule (or (= (:account-id user) id)
+              (cu/includes? (:subaccount-ids user) id))
+          "account id or one of subaccount ids of user has to be same as id of the account associated with the file"
+          {:file-path file-path :id id :user-account-id (:account-id user)
+           :user-subaccount-ids (:subaccount-ids user)})))
 
-(defn validate-group-admin-access-for-files [{:keys [user] :as env} {:keys [id file-path] :as file-info}]
-  (rule (= id (:group-id user))
-        "group id of user has to be same as id of the group associated with the file"
-        {:file-path file-path :id id :user-group-id (:group-id user)})
+(defn validate-account-admin-access-for-files [{:keys [user] :as env} {:keys [id file-path] :as file-info}]
+  (rule (= id (:account-id user))
+        "account id of user has to be same as id of the account associated with the file"
+        {:file-path file-path :id id :user-account-id (:account-id user)})
   )
 
 ;;UPLOAD
-(defmethod bv/validate ["super-admin" :file-upload :group]
+(defmethod bv/validate ["master-admin" :file-upload :account]
   [_ _ env file-info _ _]
-  (validate-file-upload-for-group env file-info))
+  (validate-file-upload-for-account env file-info))
 
-(defmethod bv/validate ["supergroup-admin" :file-upload :group]
+(defmethod bv/validate ["master-account-admin" :file-upload :account]
   [_ _ env file-info _ _]
   (Rules
-   (validate-file-upload-for-group env file-info)
-   (validate-supergroup-access-for-file env file-info))
+   (validate-file-upload-for-account env file-info)
+   (validate-master-account-access-for-file env file-info))
   )
 
-(defmethod bv/validate ["group-admin" :file-upload :group]
+(defmethod bv/validate ["account-admin" :file-upload :account]
   [_ _ env file-info _ _]
-  (validate-file-upload-for-group env file-info)
-  (validate-group-admin-access-for-files env file-info)
+  (validate-file-upload-for-account env file-info)
+  (validate-account-admin-access-for-files env file-info)
   )
 
 
 ;; DOWNLOAD
-(defmethod bv/validate ["super-admin" :file-download :group]
+(defmethod bv/validate ["master-admin" :file-download :account]
   [_ _ {:keys [user]} {:keys [file-path file-path-vector table id type format path] :as file-info} _ _]
   (Rules
-   (validate-file-type-for-group file-info)
+   (validate-file-type-for-account file-info)
    (validate-file-format file-info)
    ))
 
-(defmethod bv/validate ["supergroup-admin" :file-download :group]
+(defmethod bv/validate ["master-account-admin" :file-download :account]
   [_ _ {:keys [user] :as env} {:keys [file-path-vector id file-path] :as file-info} _ _]
   (Rules
-   (validate-file-type-for-group file-info)
+   (validate-file-type-for-account file-info)
    (validate-file-format file-info)
-   (validate-supergroup-access-for-file env file-info)
+   (validate-master-account-access-for-file env file-info)
    ))
 
-(defmethod bv/validate ["group-admin" :file-download :group]
+(defmethod bv/validate ["account-admin" :file-download :account]
   [_ _ {:keys [user] :as env} {:keys [file-path-vector id file-path] :as file-info} _ _]
   (Rules
-   (validate-file-type-for-group file-info))
+   (validate-file-type-for-account file-info))
   (validate-file-format file-info)
-  (validate-group-admin-access-for-files env file-info))
+  (validate-account-admin-access-for-files env file-info))

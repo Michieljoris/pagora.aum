@@ -1,4 +1,4 @@
-(ns pagora.aum.modules.events.db-config
+(ns pagora.aum.modules.events.db-config.event
   (:require
    [taoensso.timbre :as timbre]
    [pagora.aum.modules.auth.db-config.util :refer [master-account-admin-scope account-admin-scope]]))

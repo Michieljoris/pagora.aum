@@ -1,4 +1,4 @@
-(ns pagora.aum.modules.auth.db-config.role
+(ns pagora.aum.modules.auth.db-config.auth
   #?(:cljs (:require-macros [pagora.aum.database.validate.Rule :refer [rule]]))
   (:require [pagora.aum.database.validate.core :as bv :refer [Rules]]
             [pagora.aum.database.validate.rules :as rule :refer [require-keys]]
@@ -13,6 +13,8 @@
             [taoensso.timbre :as timbre :refer [error info]])
   )
 
+
 (def config {:root true
-             :columns [:id :name]
+             :table-name "auth"
+             :columns [:id :account-id :user-id :role-id]
              :read {:blacklist []}})

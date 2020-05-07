@@ -52,7 +52,6 @@
         (catch Exception e
           (println "Error creating file" path))))))
 
-
 (defn  make-url [{:keys [db-name db-user db-password db-options db-url]}]
   (str "mysql:" db-url db-name "?user=" db-user "&password=" db-password db-options))
 
@@ -71,8 +70,7 @@
    db-name))
 
 (defn recreate-db [conf db]
-  (let [
-        {:keys [db-spec migrations-table]} (-> conf :databases db)
+  (let [{:keys [db-spec migrations-table]} (-> conf :databases db)
         {:keys [db-name]} db-spec
         mysql-url (make-url (assoc db-spec :db-name "mysql"))]
     (println "Recreating" db-name)
@@ -80,7 +78,8 @@
       (jdbc/execute conn [(str "DROP DATABASE IF EXISTS " db-name)])
       (jdbc/execute conn [(str "CREATE DATABASE IF NOT EXISTS " db-name)]))
     (with-open [conn (jdbc/connection (make-url db-spec))]
-      (create-migrations-table conn migrations-table))))
+      (create-migrations-table conn migrations-table))
+    (println "Done recreating" db-name)))
 
 (defn set-url [databases]
   (into {} (->> databases
@@ -166,7 +165,7 @@
 
   (joplin-do :seed {:config "joplin.edn" :env :dev :db :aum-dev} ["seed1"])
   (joplin-do :reset {:config "joplin.edn" :env :dev :db :aum-minimal})
-  (joplin-do :create {:config "joplin.edn" :env :dev :db :aum-minimal :id "my-new-migration"})
-  (joplin-do :rebuild {:config "joplin.edn" :env :dev :db :aum-minimal} ["seed1"])
+  (joplin-do :create {:config "joplin.edn" :env :dev :db :aum-minimal :id "create-accounts-users-roles"})
+  (joplin-do :rebuild {:config "joplin.edn" :env :dev :db :aum-minimal} [:accounts :users :roles :subscriptions :auth])
 
   )

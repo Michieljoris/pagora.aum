@@ -62,20 +62,25 @@
    :server-port "8080"
 
    ;; Mysql database
-   :db-url "//localhost:3306/"
    ;; :db-name "chin_minimal"
    ;; :db-name "chin_minimal_templates"
+
    :db-name  "foo"
-   :db-use-ssl false
-   :om-next-test-db-name "om_next_test"
    :db-user "root"
    :db-password ""
+   :db-options "&serverTimezone=UTC&zeroDateTimeBehavior=convertToNull&useSSL=false&characterEncoding=UTF-8"
+   :db-password "irma"
+   :db-url "//localhost:3306/"
+
+   :db-print-spec true
 
    :db-pool true             ; in dev mode running tests mess up db-conn if true
    :db-pool-loglevel "INFO"
    :min-pool-size 3
    :initial-pool-size 3
-   :db-print-spec true
+
+
+   :om-next-test-db-name "om_next_test"
 
    :elasticsearch-url "http://localhost:9200"
    :elasticsearch-log-result true
