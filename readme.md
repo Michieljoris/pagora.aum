@@ -11,4 +11,4 @@ environment management, build system, internationalization, state management
 etc. There is also a data inspector, test runner and fullstack testing
 (emulating backend in frontend).
 
-See documentation at [[http://www.axion5.net/slate/]]
+See documentation at http://www.axion5.net/slate/
