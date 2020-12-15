@@ -41,6 +41,10 @@
           (when (empty? props)
             (timbre/warn (str "You want to render " (aget cmp-class "displayName") ". But the props passed are empty.")))
           (factory (om/computed (or props nil) computed) )))
-      (fn [this k & [computed]]
-        (let [{:keys [props]} (om-data this)]
-          (factory (om/computed (get props k) computed)))))))
+      (fn [parent-cmp props-or-kw & [computed]]
+        (let [{:keys [props]} (om-data parent-cmp)
+              props (cond
+                      (keyword? props-or-kw) (get props props-or-kw)
+                      (map? props-or-kw) props-or-kw
+                      :else nil)]
+          (factory (om/computed props computed)))))))

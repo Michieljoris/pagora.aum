@@ -49,7 +49,9 @@
         ;;DEBUG!!!
         ;; table-info (assoc table-info :search-term "Amsterdam")
 
-        batch-params (aum-read/make-batch-params table-info)
+        ;;TODO:aum
+        ;; batch-params (aum-read/make-batch-params table-info) ;;TODO: fn not known
+        batch-params nil
         batch-params (if-let [page-batch-params (get-in app-data [:client/page-state
                                                                   route
                                                                   :batch-params
@@ -57,7 +59,9 @@
                        (if (fn? page-batch-params)
                          (page-batch-params app-data batch-params)
                          page-batch-params)
-                       (aum-read/standard-batch-params batch-params))
+                       nil ;;TODO: fn not known: standard-batch-params
+                       ;; (aum-read/standard-batch-params batch-params)
+                       )
 
         ;; query (filterv (fn [e]
         ;;                  (and (keyword? e)
@@ -66,7 +70,7 @@
         ;;                       (contains? (set columns) e)))
         ;;                query)
         query (into [] columns)
-        chsk-send! (websocket/get-chsk-send!-fn)
+        chsk-send! (websocket/get-chsk-send!-fn {}) ;;TODO: {} should be app-config
         batch-params (assoc batch-params :with-meta :count)]
 
     (letfn [(fetch-chunk [{:keys [all-rows call-count chunk-size]}]

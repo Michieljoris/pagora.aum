@@ -4,6 +4,7 @@
    [pagora.aum.config :refer [make-app-config]]
    [pagora.aum.integrant.state :as ig-state]
    [taoensso.timbre :as timbre]
+   [cuerdas.core :as str]
    [integrant.core :as ig]
    [pagora.clj-utils.timbre :refer [middleware]]))
 
@@ -121,3 +122,4 @@
 (defn restart [aum-config]
   (ig/halt! ig-state/system)
   (go aum-config))
+

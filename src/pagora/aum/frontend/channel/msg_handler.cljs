@@ -28,7 +28,9 @@
   ;; TODO: Set a ui visual marker that websocket is down
 
 ;; TODO: enable again
-  (timbre/info "Websocket state changed: " msg)
+  ;; (timbre/info "Websocket state changed: " (update msg :aum-config assoc :app-state :omitted))
+  (timbre/info "Websocket state changed: " (dissoc msg :aum-config))
+
   ;; (om/transact! reconciler `[(app/merge-map {:map-to-merge
   ;;                                              {:client/ws-open? ~(get-in msg [:data :open?])}})
   ;;                            :client/ws-open?])

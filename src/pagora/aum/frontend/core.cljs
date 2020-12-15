@@ -38,7 +38,8 @@
 ;; When this is the case we mount our om app.
 (defmethod channel-msg-handler :ws-first-open
   [{:keys [aum-config] :as msg}]
-  (timbre/info :#b "Websocket opened: " msg)
+  ;; (timbre/info :#b "Websocket opened: " (update msg :aum-config assoc :app-state :omitted))
+  (timbre/info :#b "Websocket opened: " (dissoc msg :aum-config))
   ((:chsk-send! @websocket/websocket) [:aum/frontend-config nil] 8000
    (fn [resp]
      (let [{:keys [app-config RootComponent app-state]} (update aum-config :app-config merge resp)

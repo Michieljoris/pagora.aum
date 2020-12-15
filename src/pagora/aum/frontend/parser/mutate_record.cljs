@@ -5,6 +5,7 @@
             [cljs.pprint :refer [pprint]]
             [pagora.aum.frontend.parser.mutate :refer [mutate post-remote]]
             [pagora.aum.frontend.parser.mutate-helpers :refer [is-dirty? modify-record update-unsaved-records]]
+            ;; [pagora.aum.frontend.parser.mutate-page-route :refer [unsaved-records->cached-unsaved-records]]
             [pagora.aum.frontend.parser.calc-mods :refer [calc-mods]]
             [taoensso.timbre :as timbre :refer-macros [info]])
   (:require-macros
@@ -346,4 +347,6 @@
   [{:keys [state]} _ {:keys [table filter-params]}]
   {:action #(au/reset-item-batch state table {:filter-params  filter-params
                                               :page 1
-                                              :cached-unsaved-records (unsaved-records->cached-unsaved-records @state table)})})
+                                              ;;TODO: aum
+                                              ;; :cached-unsaved-records (unsaved-records->cached-unsaved-records @state table)
+                                              })})
