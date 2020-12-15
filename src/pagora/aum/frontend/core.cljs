@@ -34,6 +34,18 @@
 
 (defonce aum-state (atom nil))
 
+(defn start-app [aum-config]
+  (let [{:keys [app-config RootComponent app-state]} aum-config
+        reconciler (start-reconciler
+                    {:app-config app-config
+                     :app-state app-state})]
+    (reset! aum-state {:reconciler reconciler
+                       :RootComponent RootComponent
+                       :app-state (om/app-state reconciler)
+                       :app-config app-config})
+    (mount-app-or-test-runner reconciler RootComponent))
+  )
+
 ;; This handler is triggered when websocket is ready to send and receive msgs.
 ;; When this is the case we mount our om app.
 (defmethod channel-msg-handler :ws-first-open
@@ -42,16 +54,10 @@
   (timbre/info :#b "Websocket opened: " (dissoc msg :aum-config))
   ((:chsk-send! @websocket/websocket) [:aum/frontend-config nil] 8000
    (fn [resp]
-     (let [{:keys [app-config RootComponent app-state]} (update aum-config :app-config merge resp)
-           app-state (merge app-state {:client/csrf-token (get-in msg [:data :csrf-token])})
-           reconciler (start-reconciler
-                       {:app-config app-config
-                        :app-state app-state})]
-       (reset! aum-state {:reconciler reconciler
-                          :RootComponent RootComponent
-                          :app-state (om/app-state reconciler)
-                          :app-config app-config})
-       (mount-app-or-test-runner reconciler RootComponent)))))
+     (let [aum-config (update aum-config :app-config merge resp)
+           aum-config (update aum-config :app-state merge
+                              {:client/csrf-token (get-in msg [:data :csrf-token])})]
+       (start-app aum-config)))))
 
 (defn init [aum-config]
   (let  [app-config (make-app-config)]
@@ -63,5 +69,9 @@
 
 (defn go [aum-config]
   (timbre/info :#b "App started")
-  (start-channel-listener!)
-  (websocket/start! aum-config))
+  (if (:wait-for-connection? aum-config)
+    (do
+      (timbre/info :#b "App started")
+      (start-channel-listener!)
+      (websocket/start! aum-config))
+    (start-app aum-config)))
